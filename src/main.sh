@@ -360,16 +360,23 @@ braindance_cmd_set_key() {
 braindance_cmd_preset() {
 	if [ $# -lt 1 ]; then
 		echo "[braindance] Usage: braindance preset <preset-name>" >&2
+		echo "[braindance]        braindance preset reset   (clear override)" >&2
 		echo "[braindance] Available presets:" >&2
 		for p in "$BRAINDANCE_PRESETS_DIR"/*.env; do
-			local name
-			name=$(basename "$p" .env)
-			echo "  - $name"
+			local pname
+			pname=$(basename "$p" .env)
+			echo "  - $pname"
 		done
 		return 1
 	fi
 
 	local name="$1"
+
+	if [ "$name" = "reset" ] || [ "$name" = "auto" ]; then
+		braindance_cmd_auto
+		return 0
+	fi
+
 	local preset_file
 	preset_file=$(braindance_get_preset_path "$name")
 	if [ ! -f "$preset_file" ]; then
@@ -378,11 +385,10 @@ braindance_cmd_preset() {
 		return 1
 	fi
 
-	# Write override to file so it persists across shell sessions
 	mkdir -p "$BRAINDANCE_DIR"
 	echo "$name" > "$BRAINDANCE_DIR/override"
 	echo "[braindance] Preset overridden to: $name"
-	echo "[braindance] Override saved (use 'braindance auto' to revert to time-based)."
+	echo "[braindance] Use 'braindance preset reset' to revert to time-based."
 }
 
 # braindance_cmd_shell: Emit shell integration snippet
@@ -471,6 +477,43 @@ braindance_cmd_hooks_install() {
 	echo "[braindance] Every Claude Code session now shows braindance status."
 }
 
+braindance_cmd_upgrade() {
+	local rc_file="$HOME/.zshrc"
+	if [ ! -f "$rc_file" ]; then
+		echo "[braindance] No .zshrc found."
+		return 1
+	fi
+
+	if ! grep -q "Braindance" "$rc_file" 2>/dev/null; then
+		echo "[braindance] No braindance integration found in .zshrc."
+		echo "[braindance] Run 'braindance shell' to see integration snippet."
+		return 0
+	fi
+
+	sed -i '/# Braindance/,/^$/d' "$rc_file"
+
+	{
+	echo ""
+	echo "# Braindance — auto-switch Claude Code presets by IST time"
+	echo "export BRAINDANCE_DIR=\"\${BRAINDANCE_DIR:-\$HOME/.local/share/braindance}\""
+	echo "[[ -f \"\$BRAINDANCE_DIR/src/main.sh\" ]] && source \"\$BRAINDANCE_DIR/src/main.sh\""
+	echo ""
+		echo 'claude() {'
+		echo '	[[ -f "$BRAINDANCE_DIR/src/main.sh" ]] && source "$BRAINDANCE_DIR/src/main.sh"'
+		echo '	local bd_preset="${BRAINDANCE_ACTIVE_PRESET:-unknown}"'
+		echo '	local bd_opus="${ANTHROPIC_DEFAULT_OPUS_MODEL:-?}"'
+		echo '	local bd_sonnet="${ANTHROPIC_DEFAULT_SONNET_MODEL:-?}"'
+		echo '	local bd_haiku="${ANTHROPIC_DEFAULT_HAIKU_MODEL:-?}"'
+		echo '	printf "  [braindance] %s | opus: %s  sonnet: %s  haiku: %s\n" "$bd_preset" "$bd_opus" "$bd_sonnet" "$bd_haiku"'
+		echo '	command claude "$@"'
+		echo '}'
+		echo "alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility command claude'"
+	} >> "$rc_file"
+
+	echo "[braindance] ✓ Shell integration upgraded in $rc_file"
+	echo "[braindance] Run: exec \$SHELL"
+}
+
 # braindance_cmd_completions: Install zsh tab-completions
 braindance_cmd_completions() {
 	local action="${1:-}"
@@ -555,6 +598,9 @@ braindance_main() {
 			shift
 			braindance_cmd_completions "$@"
 			;;
+		upgrade)
+			braindance_cmd_upgrade
+			;;
 		--help|-h)
 			echo "Braindance — Claude Code Preset Switcher & Skills Manager"
 			echo ""
@@ -564,6 +610,8 @@ braindance_main() {
 			echo "  braindance set-key <key>       Store Z.ai API key"
 			echo "  braindance preset <name>       Override mindset (persists)"
 			echo "  braindance auto                Revert to time-based auto-detection"
+			echo "  braindance preset reset        Clear override, revert to auto"
+			echo "  braindance upgrade             Update .zshrc to latest integration"
 			echo "  braindance shell               Print shell integration"
 			echo "  braindance hooks-install       Install Claude Code SessionStart hook"
 			echo "  braindance completions install Install zsh tab-completions"
