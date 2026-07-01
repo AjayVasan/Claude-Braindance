@@ -64,7 +64,7 @@ Claude-Braindance/
 | **CLI Dispatcher** | `src/main.sh` | Routes commands: `--check`, `set-key`, `preset`, `auto`, `shell`, `skills`, `hooks-install`, `completions`, `upgrade` |
 | **Time Engine** | `src/main.sh` | IST time detection with ±60s grace window at 11:30 boundary |
 | **Preset Router** | `src/main.sh` | Maps time → preset: 00:00-06:29 daily, 06:30-11:29 offpeak, 11:30-15:30 peak, 15:30-23:59 offpeak |
-| **Precmd Hook** | `src/main.sh` | Watches for time-window crossings, prints notification with model diff at next prompt |
+| **Precmd Hook** | `src/main.sh` | Watches for time-window crossings, persists notification to `$BRAINDANCE_DIR/last_transition`, auto-exports new `ANTHROPIC_*` vars |
 | **Key Manager** | `src/main.sh` | Store/read/verify API key with `chmod 600` |
 | **Shell Hook** | `src/main.sh` | Emits bash/zsh/fish integration snippet |
 | **Skills Registry** | `src/skills.sh` | 5 curated skill sources with install/remove/docs |
@@ -80,6 +80,19 @@ braindance --check    → Executes CLI commands
 
 Detection works in both bash and zsh using shell-specific source detection.
 
+
+### 3.4 Transition Notification Flow
+
+When a time-window crossing is detected (e.g., 11:29 → 11:30):
+
+1. **Precmd hook** fires at next shell prompt, detects `current_preset != _BD_LAST_PRESET`
+2. Calls `braindance_apply_preset` to source new `.env` and export `ANTHROPIC_*` vars
+3. Writes `$BRAINDANCE_DIR/last_transition` (12-line notification, `>` overwrite — never appended)
+4. Sets `_BD_LAST_PRESET = current_preset` so the same crossing doesn't re-fire
+5. At next `claude` launch, the `claude()` wrapper (in `.zshrc`) cats the file, then deletes it
+6. If the wrapper already cleaned it, the SessionStart hook sees nothing; otherwise it displays and cleans up
+
+**In-flight safety:** The precmd hook cannot fire while `claude` owns the terminal. A user typing a message mid-transition is completely uninterrupted. The notification is deferred until the next `claude` launch, and old prompts are never re-sent to new models — only the `ANTHROPIC_*` env vars change.
 ---
 
 ## 4. Time-Based Preset Switching
@@ -161,6 +174,7 @@ Adding a new provider = create a new preset `.env` file with the provider's base
 | E6 | 11:30 boundary clock skew | ±60s grace window + deterministic function | 5 |
 | E7 | Stale override env var after preset auto | `--check` uses file as authority, drops env var fallback | 6 |
 | E8 | Prompt notification on time crossing | `precmd`/`PROMPT_COMMAND` hook, skips when override active | 25 |
+| E9 | In-flight message during time transition | Precmd hook writes `last_transition` file; active `claude` session unchanged; notification displayed on next `claude` launch; old prompts never re-sent to new model | 15 |
 ---
 
 ## 7. Dependencies

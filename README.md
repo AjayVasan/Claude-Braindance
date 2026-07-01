@@ -202,8 +202,6 @@ alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility command claude'
 
 To regenerate the snippet: `braindance shell`
 
-### Auto-Notification (Precmd Hook)
-
 ### Auto-Notification + Auto-Switch (Precmd Hook)
 
 Once sourced, Braindance registers a lightweight shell hook that watches for time-window crossings. When the clock passes a boundary (e.g., 11:30 → peak), it **automatically exports the new ANTHROPIC_* vars** to your live shell and shows:
@@ -215,14 +213,45 @@ Once sourced, Braindance registers a lightweight shell hook that watches for tim
   Haiku:       GLM-4.5-Air          → GLM-4.5-Air
 ```
 
-No manual re-source needed — your `claude` command immediately uses the right models. No background processes — just a `precmd`/`PROMPT_COMMAND` hook that runs in <1ms. Skips entirely when a manual override is active.
+The transition notification is also **persisted to disk** (`$BRAINDANCE_DIR/last_transition`) so it survives even if you're inside a running program (like `claude`) when the transition happens.
+
+No manual re-source needed. No background processes — just a `precmd`/`PROMPT_COMMAND` hook that runs in <1ms. Skips entirely when a manual override is active.
+
+### What happens to in-flight work?
+
+The precmd hook only fires when the **shell prompt** (`$`) is displayed. If you're inside `claude` typing a message when a time-crossing occurs:
+
+1. **Your running claude session is untouched** — it continues with the models it started with
+2. **Transition is saved** to `$BRAINDANCE_DIR/last_transition` at the next shell prompt (after you exit claude)
+3. **Your old prompts are NEVER re-sent** to the new model — conversation history stays in the chat as context
+4. **Next `claude` launch** shows the notification and auto-resumes your conversation with the new models:
+
+```
+$  ← back at shell prompt
+[braindance] ⏰ Auto-switched: offpeak → peak  ← precmd fires
+
+$ claude
+━━━ braindance ⏰ Models Changed ━━━━━━━━━━━━━━
+  deep-thinking-offpeak → deep-thinking-peak
+  Opus:  GLM-5.2 → GLM-5-Turbo
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[braindance] deep-thinking-peak | opus: GLM-5-Turbo
+```
+
+**No data loss. No re-processed messages. Zero disruption.**
+
+### Notification display chain
+
+The `last_transition` file is shown in three places, then cleaned up:
+
+| Step | Where | How |
+|------|-------|-----|
+| 1 | **Shell prompt** (precmd) | `braindance_precmd_check` writes the file on transition |
+| 2 | **claude() wrapper** (in `.zshrc`) | Next `claude` command reads + deletes the file before forwarding to claude |
+| 3 | **SessionStart hook** (inside claude) | If wrapper cleaned it, SessionStart won't see it; if not, it's shown at session start |
+| 4 | **File deleted** | After first display by either handler |
 
 ### Fish shell
-```fish
-set -gx BRAINDANCE_DIR $HOME/.local/share/braindance
-source $BRAINDANCE_DIR/src/main.sh
-alias claude-doc="env BRAINDANCE_PRESET_OVERRIDE=docs-utility claude"
-```
 ---
 
 ## Skills Ecosystem
