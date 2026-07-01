@@ -20,7 +20,17 @@
 
 BRAINDANCE_SCRIPT_DIR=""
 if [ -n "${BASH_SOURCE-}" ] && [ "${BASH_SOURCE[0]}" ]; then
-	BRAINDANCE_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	# Follow symlinks to get the real script directory
+	_bd_src="${BASH_SOURCE[0]}"
+	while [ -L "$_bd_src" ]; do
+		_bd_link="$(readlink "$_bd_src")"
+		case "$_bd_link" in
+			/*) _bd_src="$_bd_link" ;;  # absolute
+			*)  _bd_src="$(cd "$(dirname "$_bd_src")" && pwd)/$_bd_link" ;;  # relative
+		esac
+	done
+	BRAINDANCE_SCRIPT_DIR="$(cd "$(dirname "$_bd_src")" && pwd)"
+	unset _bd_src _bd_link
 elif [ -n "${ZSH_VERSION-}" ]; then
 	# In zsh, use the %x expansion to get the sourced file path
 	BRAINDANCE_SCRIPT_DIR="${${(%):-%x}:A:h}" 2>/dev/null || BRAINDANCE_SCRIPT_DIR="$PWD"
