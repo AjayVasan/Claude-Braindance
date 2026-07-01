@@ -535,8 +535,11 @@ _bd_interactive_help() {
 		"──────────────────────────────────────────────"
 	printf '\033[%d;%dH\033[90m\033[2musage\033[0m\033[K' $((sep_row)) $((left+29))
 
+	# Drain again — terminal may have sent response bytes during rendering
+	_drain_input
+
 	# Initial render
-	local r old_selected=-1
+	local r old_selected=-1 esc_count=0
 	while true; do
 		if (( selected != old_selected )); then
 			for ((r=0; r<count && r<6; r++)); do
@@ -550,7 +553,12 @@ _bd_interactive_help() {
 		case $(_read_key) in
 			UP)    ((selected > 0)) && ((selected--)) ;;
 			DOWN)  ((selected < count-1)) && ((selected++)) ;;
-			QUIT|ESC) break ;;
+			ESC)
+				# Ignore first few ESC returns — could be residual terminal bytes
+				((esc_count++))
+				[ "$esc_count" -ge 3 ] && break
+				;;
+			QUIT)  break ;;
 		esac
 	done
 }
@@ -709,8 +717,7 @@ else
 			""|y|Y|yes|YES)
 				printf '\033[%d;%dH\033[96m  Enter Z.ai API key (sk-...): \033[0m' \
 					$((step_row + 8)) $((box_indent))
-				read -r -s api_key
-				echo
+				read -r api_key
 				printf '\033[%dH\033[K' $((step_row + 8))
 				if [ -n "$api_key" ]; then
 					bash "$BRAINDANCE_DIR/src/main.sh" set-key "$api_key" &>/dev/null
