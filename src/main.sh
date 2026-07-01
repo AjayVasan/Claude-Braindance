@@ -255,7 +255,16 @@ braindance_cmd_check() {
 
 	os=$(braindance_detect_os)
 	ist_time=$(braindance_get_time_ist)
-	preset_name=$(braindance_detect_preset)
+	# Resolve preset name considering override file
+	if [ -f "$BRAINDANCE_DIR/override" ]; then
+		preset_name=$(cat "$BRAINDANCE_DIR/override")
+		preset_display=" (overridden)"
+	elif [ -n "${BRAINDANCE_PRESET_OVERRIDE:-}" ]; then
+		preset_name="$BRAINDANCE_PRESET_OVERRIDE"
+		preset_display=" (overridden)"
+	else
+		preset_name=$(braindance_detect_preset)
+	fi
 	key=$(braindance_get_key)
 	shell_type="${SHELL##*/}"
 
@@ -274,18 +283,13 @@ braindance_cmd_check() {
 	echo "  HHMM numeric:    ${ist_time}"
 	echo ""
 	echo "Preset"
-	if [ -n "$BRAINDANCE_PRESET_OVERRIDE" ]; then
-		echo "  Active:          ${BRAINDANCE_PRESET_OVERRIDE} (overridden)"
-	else
-		echo "  Active:          ${preset_name}"
-	fi
+	echo "  Active:          ${preset_name}${preset_display:-}"
 	echo ""
 	echo "  Model map:"
 
-	# Show model mapping by sourcing the active preset
-	local active_preset="${BRAINDANCE_PRESET_OVERRIDE:-$preset_name}"
+	# Show model mapping by reading the preset file
 	local preset_file
-	preset_file=$(braindance_get_preset_path "$active_preset")
+	preset_file=$(braindance_get_preset_path "$preset_name")
 	if [ -f "$preset_file" ]; then
 		while IFS='=' read -r key_eq val; do
 			case "$key_eq" in
@@ -322,10 +326,8 @@ braindance_cmd_check() {
 	local base_url opus sonnet haiku
 	base_url=$(echo "${ANTHROPIC_BASE_URL:-https://api.z.ai/api/anthropic}")
 
-	# Read model values directly from the active preset file (not from potentially stale env vars)
-	local active_preset="${BRAINDANCE_PRESET_OVERRIDE:-$preset_name}"
 	local preset_file
-	preset_file=$(braindance_get_preset_path "$active_preset")
+	preset_file=$(braindance_get_preset_path "$preset_name")
 	if [ -f "$preset_file" ]; then
 		opus=$(grep -m1 '^ANTHROPIC_DEFAULT_OPUS_MODEL=' "$preset_file" 2>/dev/null | cut -d= -f2)
 		sonnet=$(grep -m1 '^ANTHROPIC_DEFAULT_SONNET_MODEL=' "$preset_file" 2>/dev/null | cut -d= -f2)
