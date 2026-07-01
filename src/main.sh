@@ -426,6 +426,26 @@ braindance_cmd_hooks_install() {
 	echo "[braindance] Every session shows a braindance status box."
 }
 
+# braindance_cmd_completions: Install zsh tab-completions
+braindance_cmd_completions() {
+	local action="${1:-}"
+	case "$action" in
+		install)
+			local comp_dir="$HOME/.zsh/completions"
+			mkdir -p "$comp_dir"
+			cp "$BRAINDANCE_SCRIPT_DIR/completion.zsh" "$comp_dir/_braindance"
+			echo "[braindance] ✓ Completions installed to $comp_dir/_braindance"
+			echo "[braindance] Make sure your .zshrc has:"
+			echo "    fpath=(\$HOME/.zsh/completions \$fpath)"
+			echo "    compinit"
+			;;
+		*)
+			echo "[braindance] Usage: braindance completions install"
+			echo "[braindance] Installs tab-completion for presets and commands."
+			;;
+	esac
+}
+
 # braindance_cmd_skills: Delegate to skills.sh
 braindance_cmd_skills() {
 	local skills_script="$BRAINDANCE_DIR/src/skills.sh"
@@ -474,6 +494,10 @@ braindance_main() {
 		hooks-install)
 			braindance_cmd_hooks_install
 			;;
+		completions)
+			shift
+			braindance_cmd_completions "$@"
+			;;
 		--help|-h)
 			echo "Braindance — Claude Code Preset Switcher & Skills Manager"
 			echo ""
@@ -484,6 +508,7 @@ braindance_main() {
 			echo "  braindance preset <name>       Override preset"
 			echo "  braindance shell               Print shell integration"
 			echo "  braindance hooks-install       Install Claude Code SessionStart hook"
+			echo "  braindance completions install Install zsh tab-completions"
 			echo "  braindance skills list         List available skills"
 			echo "  braindance skills docs         Generate skills index"
 			echo "  braindance --help              This help"

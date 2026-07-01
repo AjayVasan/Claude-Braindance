@@ -178,6 +178,11 @@ install_braindance() {
 		bash "$BRAINDANCE_DIR/src/main.sh" hooks-install 2>/dev/null || true
 	fi
 
+	# ── Step 8: Tab-completions ──
+	if [ "$shell_type" = "zsh" ]; then
+		bash "$BRAINDANCE_DIR/src/main.sh" completions install 2>/dev/null || true
+	fi
+
 	echo ""
 	echo "╔══════════════════════════════════════╗"
 	echo "║        Install complete!              ║"
