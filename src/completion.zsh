@@ -37,8 +37,7 @@ _braindance_complete() {
 					'deep-thinking-offpeak:GLM-5.2 Opus. 06:30-11:29 and 15:30-23:59 IST'
 					'deep-thinking-peak:GLM-5-Turbo Opus. 11:30-15:30 IST peak hours'
 					'docs-utility:GLM-4.7 Opus. GLM-4.5-Air Sonnet/Haiku. Docs and utility'
-					'reset:Clear override, revert to auto-detection'
-					'auto:Clear override, revert to auto-detection'
+					'auto:Clear override, revert to time-based detection'
 				)
 				_describe -t presets 'preset' presets
 				;;
