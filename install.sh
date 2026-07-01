@@ -44,6 +44,9 @@ _bd_alt_on()     { printf '\033[?1049h\033[H'; }
 _bd_alt_off()    { printf '\033[?1049l'; }
 _bd_clear()      { printf '\033[2J\033[H'; }
 
+# On any exit (even error), restore terminal so the screen is never stuck
+trap '_bd_show_cursor; _bd_alt_off; clear 2>/dev/null || true' EXIT
+
 _bd_cols() { tput cols 2>/dev/null || echo 80; }
 _bd_rows() { tput lines 2>/dev/null || echo 24; }
 
@@ -563,11 +566,12 @@ install_braindance() {
 
 	# ── Next steps ──
 	_bd_box "" 52 93; content_start=$_BD_CONTENT
-
 	if $ANIMATE; then
-		_bd_type "  exec \$SHELL"   "$content_start"     "$(( (_bd_cols) / 2 - 14 ))" 0.008
-		_bd_type "  braindance --check"  "$((content_start + 1))" "$(( (_bd_cols) / 2 - 14 ))" 0.008
-		_bd_type "  claude"              "$((content_start + 2))" "$(( (_bd_cols) / 2 - 14 ))" 0.008
+		local bd_c=$(_bd_cols)
+		local type_col=$(( bd_c / 2 - 14 ))
+		_bd_type "  exec \$SHELL"   "$content_start"     "$type_col" 0.008
+		_bd_type "  braindance --check"  "$((content_start + 1))" "$type_col" 0.008
+		_bd_type "  claude"              "$((content_start + 2))" "$type_col" 0.008
 	else
 		_bd_center "\033[93mexec \$SHELL\033[0m"
 		_bd_center "\033[93mbraindance --check\033[0m"
