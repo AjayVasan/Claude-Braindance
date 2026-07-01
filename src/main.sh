@@ -16,10 +16,6 @@
 #   BRAINDANCE_API_KEY     API token (can be set via file or env var)
 #   BRAINDANCE_PRESET_OVERRIDE  Force a specific preset
 
-# Save shell opts before changing them — restore at end if sourced
-__BRAINDANCE_OLD_OPTS=$(set +o)
-set -euo pipefail
-
 # ─── Script Directory (cross-shell: bash + zsh) ──────────────────────────────
 
 BRAINDANCE_SCRIPT_DIR=""
@@ -417,6 +413,7 @@ braindance_cmd_skills() {
 # ─── Main Dispatch ────────────────────────────────────────────────────────────
 
 braindance_main() {
+	set -euo pipefail
 	if [ $# -eq 0 ]; then
 		braindance_export
 		return $?
@@ -486,12 +483,8 @@ _braindance_is_sourced() {
 	return 1
 }
 
-# Restore original shell options so sourcing doesn't break user's shell
 if _braindance_is_sourced; then
 	braindance_export
-	eval "$__BRAINDANCE_OLD_OPTS"
-	unset __BRAINDANCE_OLD_OPTS
 else
-	unset __BRAINDANCE_OLD_OPTS
 	braindance_main "$@"
 fi
