@@ -18,7 +18,9 @@ _braindance_complete() {
 				'--check:Show current preset status'
 				'--help:Show help'
 				'set-key:Store your Z.ai API key'
-				'preset:Switch to a different mindset'
+				'preset:Switch mindset or reset override'
+				'auto:Revert to time-based detection'
+				'upgrade:Update .zshrc to latest integration'
 				'shell:Print shell integration snippet'
 				'hooks-install:Install Claude Code startup hook'
 				'completions:Install shell tab-completions'
@@ -28,16 +30,18 @@ _braindance_complete() {
 			;;
 		args)
 			case $line[1] in
-				preset)
-					local -a presets
-					presets=(
-						'daily-coding:GLM-4.7 all models. Default 00:00-06:29 IST'
-						'deep-thinking-offpeak:GLM-5.2 Opus. 06:30-11:29 and 15:30-23:59 IST'
-						'deep-thinking-peak:GLM-5-Turbo Opus. 11:30-15:30 IST peak hours'
-						'docs-utility:GLM-4.7 Opus. GLM-4.5-Air Sonnet/Haiku. Docs and utility'
-					)
-					_describe -t presets 'preset' presets
-					;;
+			preset)
+				local -a presets
+				presets=(
+					'daily-coding:GLM-4.7 all models. Default 00:00-06:29 IST'
+					'deep-thinking-offpeak:GLM-5.2 Opus. 06:30-11:29 and 15:30-23:59 IST'
+					'deep-thinking-peak:GLM-5-Turbo Opus. 11:30-15:30 IST peak hours'
+					'docs-utility:GLM-4.7 Opus. GLM-4.5-Air Sonnet/Haiku. Docs and utility'
+					'reset:Clear override, revert to auto-detection'
+					'auto:Clear override, revert to auto-detection'
+				)
+				_describe -t presets 'preset' presets
+				;;
 				skills)
 					local -a skills_cmds
 					skills_cmds=(
