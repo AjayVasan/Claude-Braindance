@@ -1,13 +1,11 @@
-# Zai
+# Claude-Braindance
 
-**Claude Code Preset Switcher & Skills Manager for Z.ai**
-
-Zai automatically exports the right Claude Code environment variables based on the current IST time, switching between model presets optimized for different tasks and peak/off-peak hours.
+**Drop into a different state of mind — without thinking about it.**
 
 ```
-$ zai --check
+$ braindance --check
 ╔══════════════════════════════════════╗
-║        zai — utility status          ║
+║     braindance — utility status      ║
 ╚══════════════════════════════════════╝
 
 System
@@ -18,8 +16,8 @@ Timezone
   Source:          Asia/Kolkata
   Current (IST):   14:22 IST
 
-Preset
-  Active:          deep-thinking-peak
+Mindset
+  Active:          deep-thinking (peak hours)
 
   Model map:
     Opus:                        GLM-5-Turbo
@@ -28,37 +26,98 @@ Preset
 
 API Key
   Status:          set
-  Prefix:          sk-abc12...
   File perms:      600 (secure ✓)
 ```
+
+---
+
+Braindance is a terminal utility for [Claude Code](https://claude.ai) — an AI coding agent. It does two things:
+
+1. **Auto-switches Claude's "mindset"** based on time of day — you get the right model for the right task without touching config
+2. **Helps you discover and install Claude Code skills** — superpowers, memory, design guidance, and more from the best open-source repos
+
+Inspired by the Cyberpunk 2077 concept of **braindance** — switching between different perceptual layers to experience the same world differently. Your coding environment, different mindsets.
+
+---
+
+## How it Works
+
+Claude Code works with backend AI models (like Opus for deep reasoning, Sonnet for balanced work, Haiku for quick tasks). Different work needs different models — but manually switching between them is friction.
+
+**Braindance automates this.** You install it once, add one line to your shell config, and forget about it. Every new terminal session, Braindance reads the current IST time and exports the right environment variables so Claude Code uses the optimal model preset.
+
+No daemons. No background processes. No 200MB dependency installs. It's a shell script — it runs in milliseconds and disappears.
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   Your Terminal                      │
+│                                                      │
+│  $ claude                                            │
+│                                                      │
+│  ┌─────────────────────────────────────────────┐     │
+│  │  braindance (source'd in .zshrc)             │     │
+│  │  ├── Reads IST time → 14:22                 │     │
+│  │  ├── Selects preset → deep-thinking-peak    │     │
+│  │  └── Exports ANTHROPIC_* env vars           │     │
+│  └─────────────────────────────────────────────┘     │
+│                                                      │
+│  ┌─────────────────────────────────────────────┐     │
+│  │  Claude Code runs with:                      │     │
+│  │  Opus  → GLM-5-Turbo  (deep reasoning)      │     │
+│  │  Sonnet→ GLM-4.7      (balanced)            │     │
+│  │  Haiku → GLM-4.5-Air  (quick tasks)         │     │
+│  └─────────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+## Features
+
+| Feature | What it does |
+|---------|-------------|
+| **⏰ Time-based presets** | Auto-selects model preset based on IST time windows |
+| **🧠 4 mindsets** | Daily coding, deep thinking (peak), deep thinking (off-peak), docs |
+| **🔑 Secure key storage** | API key stored with `chmod 600`, verified before each session |
+| **🔌 Provider abstraction** | Currently supports Z.ai API — plug in any Anthropic-compatible provider |
+| **🐚 Shell integration** | Sources into zsh/bash/fish — one line, zero friction |
+| **📦 Skills installer** | Discover and install 5+ curated Claude Code skill packs |
+| **🏥 Diagnostic mode** | `braindance --check` shows full status at a glance |
 
 ---
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/ajayvasan-nitro/Zai
-cd Zai
+git clone https://github.com/AjayVasan/Claude-Braindance.git
+cd Claude-Braindance
 bash install.sh
 exec $SHELL
-zai --check
+braindance --check
 claude
 ```
 
+The installer walks you through:
+1. Detecting your OS and shell
+2. Copying files to `~/.local/share/braindance/`
+3. Symlinking `braindance` to your PATH
+4. Optionally adding shell integration to your config
+5. Optionally storing your API key
+
 ---
 
-## Presets
+## Presets (Mindsets)
 
-Zai switches between 4 presets based on IST time:
+| Mindset | Time Window (IST) | Opus | Sonnet | Haiku | When to use |
+|---------|-------------------|------|--------|-------|-------------|
+| `daily-coding` | 00:00-06:29 (default) | GLM-4.7 | GLM-4.7 | GLM-4.5-Air | General dev, quick tasks |
+| `deep-thinking-offpeak` | 06:30-11:29, 15:30-23:59 | GLM-5.2 | GLM-4.7 | GLM-4.5-Air | Architecture, planning, debugging |
+| `deep-thinking-peak` | 11:30-15:30 | GLM-5-Turbo | GLM-4.7 | GLM-4.5-Air | Deep work during peak hours |
+| `docs-utility` | Manual (`claude-doc`) | GLM-4.7 | GLM-4.5-Air | GLM-4.5-Air | Documentation, formatting, logs |
 
-| Preset | Time Window (IST) | Opus Model | Sonnet | Haiku | Use Case |
-|--------|-------------------|------------|--------|-------|----------|
-| `daily-coding` | 00:00-06:29 (default) | GLM-4.7 | GLM-4.7 | GLM-4.5-Air | General dev work |
-| `deep-thinking-offpeak` | 06:30-11:29, 15:30-23:59 | GLM-5.2 | GLM-4.7 | GLM-4.5-Air | Architecture, planning |
-| `deep-thinking-peak` | 11:30-15:30 | GLM-5-Turbo | GLM-4.7 | GLM-4.5-Air | Deep work, peak hours |
-| `docs-utility` | Manual (`claude-doc`) | GLM-4.7 | GLM-4.5-Air | GLM-4.5-Air | Docs, logs, formatting |
+Override anytime: `braindance preset deep-thinking-offpeak`
 
-Override any preset: `zai preset deep-thinking-offpeak`
+The ±60s grace window at 11:30 prevents boundary glitches.
 
 ---
 
@@ -66,66 +125,94 @@ Override any preset: `zai preset deep-thinking-offpeak`
 
 | Command | Description |
 |---------|-------------|
-| `zai --check` | Show diagnostic status (time, preset, models, API key) |
-| `zai set-key <key>` | Store your Z.ai API key securely |
-| `zai preset <name>` | Override the active preset |
-| `zai shell` | Print shell integration snippet (for manual setup) |
-| `zai skills list` | List available Claude Code skill sources |
-| `zai skills install <name>` | Clone and install a skill source |
-| `zai skills install --all` | Install all skill sources |
-| `zai skills docs` | Generate skills ecosystem documentation |
-| `zai --help` | Show help |
+| `braindance --check` | Full diagnostic: time, mindset, models, API key status |
+| `braindance set-key <token>` | Store your API key securely |
+| `braindance preset <name>` | Override the active mindset |
+| `braindance shell` | Print shell integration snippet |
+| `braindance skills list` | List available Claude Code skill sources |
+| `braindance skills install <name>` | Clone and install a skill pack |
+| `braindance skills install --all` | Install all curated skill sources |
+| `braindance skills docs` | Generate ecosystem documentation |
+| `braindance --help` | Show help |
 
 ---
 
 ## Provider Setup
 
-### Z.ai
+### Z.ai (default)
 
-1. Get your API key from [Z.ai](https://z.ai)
-2. Store it:
-   ```bash
-   zai set-key sk-your-key-here
-   ```
-3. Verify:
-   ```bash
-   zai --check
-   ```
+Braindance is built for [Z.ai](https://z.ai) — an Anthropic-compatible API proxy.
 
-The script exports `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, and `ANTHROPIC_DEFAULT_OPUS/SONNET/HAIKU_MODEL` for Claude Code to use the Z.ai API.
-
-### Direct Claude (fallback)
-
-If you also use Claude's native API, unset Zai's env vars:
 ```bash
-unset ANTHROPIC_BASE_URL ANTHROPIC_AUTH_TOKEN ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL ANTHROPIC_DEFAULT_HAIKU_MODEL
+braindance set-key sk-your-zai-api-key
+braindance --check
+```
+
+This exports:
+| Variable | Value |
+|----------|-------|
+| `ANTHROPIC_BASE_URL` | `https://api.z.ai/api/anthropic` |
+| `ANTHROPIC_AUTH_TOKEN` | Your Z.ai API key |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` | Per preset |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` | Per preset |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Per preset |
+
+### Other providers
+
+Swap in any Anthropic-compatible API by creating a custom preset:
+
+```bash
+cp presets/daily-coding.env presets/my-provider.env
+# Edit ANTHROPIC_BASE_URL and model names
+braindance preset my-provider
 ```
 
 ---
 
 ## Shell Integration
 
-Zai integrates with your shell via `source` in your shell config:
+The installer adds this to your shell config (with permission):
 
 ```bash
 # .zshrc or .bashrc
-export ZAI_DIR="${ZAI_DIR:-$HOME/.local/share/zai}"
-[[ -f "$ZAI_DIR/src/main.sh" ]] && source "$ZAI_DIR/src/main.sh"
-alias claude-doc='ZAI_PRESET_OVERRIDE=docs-utility claude'
+export BRAINDANCE_DIR="${BRAINDANCE_DIR:-$HOME/.local/share/braindance}"
+[[ -f "$BRAINDANCE_DIR/src/main.sh" ]] && source "$BRAINDANCE_DIR/src/main.sh"
+alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility claude'
 ```
 
-The installer does this automatically (opt-in). To regenerate the snippet:
-```bash
-zai shell
-```
+To regenerate the snippet: `braindance shell`
 
 ### Fish shell
-
 ```fish
-set -gx ZAI_DIR $HOME/.local/share/zai
-source $ZAI_DIR/src/main.sh
-alias claude-doc="env ZAI_PRESET_OVERRIDE=docs-utility claude"
+set -gx BRAINDANCE_DIR $HOME/.local/share/braindance
+source $BRAINDANCE_DIR/src/main.sh
+alias claude-doc="env BRAINDANCE_PRESET_OVERRIDE=docs-utility claude"
 ```
+
+---
+
+## Skills Ecosystem
+
+Braindance catalogs the most impactful Claude Code skill sources:
+
+| Source | Stars | What it gives you |
+|--------|-------|-------------------|
+| [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | 28k | 8 official skills: React best practices, web design guidelines, Vercel optimization |
+| [obra/superpowers](https://github.com/obra/superpowers) | 243k | 14 skills: brainstorming, TDD, code review, subagents — full SDLC methodology |
+| [thedotmack/claude-mem](https://github.com/thedotmack/claude-mem) | 85k | Cross-session memory — Claude remembers what you did last session |
+| [pbakaus/impeccable](https://github.com/pbakaus/impeccable) | 42k | 23 design commands, 45 anti-pattern detectors, live browser mode |
+| [rebelytics/one-skill-to-rule-them-all](https://github.com/rebelytics/one-skill-to-rule-them-all) | 769 | Task observer — auto-creates and improves skills from usage patterns |
+
+Plus tools for knowledge graph generation:
+
+| Tool | Stars | What it does |
+|------|-------|-------------|
+| [Graphify](https://github.com/safishamsi/graphify) | 75k | Maps entire project into a queryable knowledge graph |
+| [Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) | 69k | Interactive dashboard with guided codebase tours |
+| [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) | 23k | Fastest code graph — C binary, 158 languages |
+| [code-review-graph](https://github.com/tirth8205/code-review-graph) | 19k | PR review token reduction (82x median) |
+
+Install any of them: `braindance skills install obra/superpowers`
 
 ---
 
@@ -133,70 +220,89 @@ alias claude-doc="env ZAI_PRESET_OVERRIDE=docs-utility claude"
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZAI_DIR` | `~/.local/share/zai` | Zai data directory |
-| `ZAI_TZ` | `Asia/Kolkata` | Timezone for preset switching |
-| `ZAI_PRESET_OVERRIDE` | _(unset)_ | Force a specific preset |
-| `ZAI_API_KEY` | _(from file)_ | Z.ai API token (env var override) |
+| `BRAINDANCE_DIR` | `~/.local/share/braindance` | Data directory |
+| `BRAINDANCE_TZ` | `Asia/Kolkata` | Timezone for preset switching |
+| `BRAINDANCE_PRESET_OVERRIDE` | _(unset)_ | Force a specific mindset |
+| `BRAINDANCE_API_KEY` | _(from file)_ | API token (env var override) |
 
 ---
 
-## Skills Management
+## Requirements
 
-Zai catalogs and installs the most impactful Claude Code skill sources:
+| Dependency | Required for | Notes |
+|------------|-------------|-------|
+| **bash** 4.0+ | Running scripts | Cross-platform |
+| **curl** | Skills install | Usually pre-installed |
+| **git** | Skills installation | Usually pre-installed |
+| **npx bats** | Running tests | Optional, install via `npm` |
 
-| Source | Description |
-|--------|-------------|
-| [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | Official Vercel skill pack (28k★) |
-| [obra/superpowers](https://github.com/obra/superpowers) | Full SDLC methodology (243k★) |
-| [thedotmack/claude-mem](https://github.com/thedotmack/claude-mem) | Cross-session memory (85k★) |
-| [pbakaus/impeccable](https://github.com/pbakaus/impeccable) | Design guidance (42k★) |
-| [rebelytics/one-skill-to-rule-them-all](https://github.com/rebelytics/one-skill-to-rule-them-all) | Task observer meta-skill |
-
-See full catalog: `zai skills docs` → `skills/index.md`
-
----
-
-## Installation
-
-### New user (clone)
-
-```bash
-git clone https://github.com/ajayvasan-nitro/Zai
-cd Zai
-bash install.sh
-```
-
-The installer will:
-1. Copy files to `~/.local/share/zai/`
-2. Create a `zai` symlink in `~/.local/bin/`
-3. Optionally add shell integration to your config
-4. Optionally store your Z.ai API key
-
-### Requirements
-
-- **bash** 4.0+ (for running the scripts)
-- **curl** (for skills install from GitHub)
-- **git** (for skills installation)
-- **bats** (optional, for running tests)
+**Zero runtime dependencies.** No Python, Node.js, Ruby, Go, or package managers required.
 
 ---
 
 ## Testing
 
 ```bash
-make test
-# or
-npx bats tests/
+make test        # 23 tests — preset detection, CLI, key mgmt, skills
+make check       # braindance --check — verify your setup
+make lint        # shellcheck all scripts
 ```
 
 ---
 
-## Migration Guide
+## Project Architecture
 
-See [docs/MIGRATION.md](docs/MIGRATION.md) for when and how to migrate from shell to a compiled binary.
+```
+Claude-Braindance/
+├── braindance                 → symlink to src/main.sh
+├── install.sh                 # One-shot installer
+│
+├── src/
+│   ├── main.sh                # Core engine (CLI, time detection, preset switching, key mgmt)
+│   └── skills.sh              # Skills management (registry, install, docs)
+│
+├── presets/
+│   ├── daily-coding.env
+│   ├── deep-thinking-offpeak.env
+│   ├── deep-thinking-peak.env
+│   └── docs-utility.env
+│
+├── skills/
+│   └── index.md               # Auto-generated skill catalog
+│
+├── tests/                     # 23 bats tests
+├── docs/
+│   ├── SPEC.md                # Full specification
+│   └── MIGRATION.md           # Shell-to-Go migration guide
+└── Makefile
+```
+
+The entire project is ~1700 lines of bash. Designed to be readable, auditable, and forkable.
+
+---
+
+## Design Philosophy
+
+Built via adversarial multi-agent planning (hyperplan mode) with four specialists debating every decision:
+
+- **Pragmatist** kept scope tight — shell-first, no unnecessary deps
+- **Architect** drew clear component boundaries — 4 files, not 8
+- **Deep-thinker** caught 25 edge cases, distilled to 6 essential ones
+- **Innovator** pushed for delight — `--check` diagnostic mode, skills ecosystem
+
+**Key decisions:**
+- **Shell, not Python/Go** — env vars must be set in the parent shell; only `source` can do that
+- **No LiteLLM** — 200MB+ dependency for an env var switcher is absurd
+- **No daemon** — runs once at session start in <5ms, then exits
+- **Opt-in shell integration** — never modifies `.zshrc` without asking
+- **Documented migration path** — `docs/MIGRATION.md` for when Go becomes necessary
 
 ---
 
 ## License
 
 MIT
+
+---
+
+*"Different perspectives. Same code. Different mind."*
