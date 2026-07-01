@@ -387,7 +387,13 @@ braindance_cmd_shell() {
 				# Braindance — auto-switch Claude Code presets by IST time
 				export BRAINDANCE_DIR="\${BRAINDANCE_DIR:-\$HOME/.local/share/braindance}"
 				[[ -f "\$BRAINDANCE_DIR/src/main.sh" ]] && source "\$BRAINDANCE_DIR/src/main.sh"
-				alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility claude'
+
+				# Wrap claude to re-evaluate preset on every invocation
+				claude() {
+					[[ -f "\$BRAINDANCE_DIR/src/main.sh" ]] && source "\$BRAINDANCE_DIR/src/main.sh"
+					command claude "\$@"
+				}
+				alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility command claude'
 			EOBASH
 			;;
 	esac
