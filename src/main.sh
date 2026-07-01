@@ -134,9 +134,12 @@ braindance_apply_preset() {
 	local preset_file
 
 	# Check override file (persists across subprocess boundaries)
-	if [ -z "${BRAINDANCE_PRESET_OVERRIDE:-}" ] && [ -f "$BRAINDANCE_DIR/override" ]; then
+	if [ -f "$BRAINDANCE_DIR/override" ]; then
 		BRAINDANCE_PRESET_OVERRIDE=$(cat "$BRAINDANCE_DIR/override")
 		export BRAINDANCE_PRESET_OVERRIDE
+	elif [ -n "${BRAINDANCE_PRESET_OVERRIDE:-}" ]; then
+		# Env var set but file gone — stale override from old shell session
+		unset BRAINDANCE_PRESET_OVERRIDE
 	fi
 
 	if [ -n "${BRAINDANCE_PRESET_OVERRIDE:-}" ]; then
