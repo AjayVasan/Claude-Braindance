@@ -8,6 +8,7 @@
 #   braindance skills remove  [name]   Remove a skill source
 #   braindance skills docs             Generate skills/index.md
 
+__BRAINDANCE_OLD_OPTS=$(set +o)
 set -euo pipefail
 
 # ─── Script Directory (cross-shell) ───────────────────────────────────────────
@@ -315,3 +316,5 @@ braindance_skills_main() {
 # ─── Entry Point ──────────────────────────────────────────────────────────────
 
 braindance_skills_main "$@"
+eval "$__BRAINDANCE_OLD_OPTS" 2>/dev/null
+unset __BRAINDANCE_OLD_OPTS 2>/dev/null
