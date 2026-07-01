@@ -133,8 +133,13 @@ braindance_apply_preset() {
 	local name="${1:-}"
 	local preset_file
 
-	# Use override if set
-	if [ -n "$BRAINDANCE_PRESET_OVERRIDE" ]; then
+	# Check override file (persists across subprocess boundaries)
+	if [ -z "${BRAINDANCE_PRESET_OVERRIDE:-}" ] && [ -f "$BRAINDANCE_DIR/override" ]; then
+		BRAINDANCE_PRESET_OVERRIDE=$(cat "$BRAINDANCE_DIR/override")
+		export BRAINDANCE_PRESET_OVERRIDE
+	fi
+
+	if [ -n "${BRAINDANCE_PRESET_OVERRIDE:-}" ]; then
 		name="$BRAINDANCE_PRESET_OVERRIDE"
 	elif [ -z "$name" ]; then
 		name=$(braindance_detect_preset)
@@ -373,10 +378,11 @@ braindance_cmd_preset() {
 		return 1
 	fi
 
-	export BRAINDANCE_PRESET_OVERRIDE="$name"
-	braindance_apply_preset "$name"
+	# Write override to file so it persists across shell sessions
+	mkdir -p "$BRAINDANCE_DIR"
+	echo "$name" > "$BRAINDANCE_DIR/override"
 	echo "[braindance] Preset overridden to: $name"
-	echo "[braindance] Run 'braindance --check' to verify."
+	echo "[braindance] Override saved (use 'braindance auto' to revert to time-based)."
 }
 
 # braindance_cmd_shell: Emit shell integration snippet
@@ -401,12 +407,29 @@ braindance_cmd_shell() {
 				# Wrap claude to re-evaluate preset on every invocation
 				claude() {
 					[[ -f "\$BRAINDANCE_DIR/src/main.sh" ]] && source "\$BRAINDANCE_DIR/src/main.sh"
+					local bd_preset="\${BRAINDANCE_ACTIVE_PRESET:-unknown}"
+					local bd_opus="\${ANTHROPIC_DEFAULT_OPUS_MODEL:-?}"
+					local bd_sonnet="\${ANTHROPIC_DEFAULT_SONNET_MODEL:-?}"
+					local bd_haiku="\${ANTHROPIC_DEFAULT_HAIKU_MODEL:-?}"
+					printf "  [braindance] %s | opus: %s  sonnet: %s  haiku: %s\n" "\$bd_preset" "\$bd_opus" "\$bd_sonnet" "\$bd_haiku"
 					command claude "\$@"
 				}
 				alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility command claude'
 			EOBASH
 			;;
 	esac
+}
+
+# braindance_cmd_auto: Clear override and revert to time-based detection
+braindance_cmd_auto() {
+	if [ -f "$BRAINDANCE_DIR/override" ]; then
+		rm -f "$BRAINDANCE_DIR/override"
+		unset BRAINDANCE_PRESET_OVERRIDE
+	fi
+	local preset
+	preset=$(braindance_detect_preset)
+	echo "[braindance] Override cleared. Reverted to time-based detection."
+	echo "[braindance] Current preset: $preset"
 }
 
 # braindance_cmd_hooks_install: Install Claude Code SessionStart hook
@@ -515,6 +538,9 @@ braindance_main() {
 			shift
 			braindance_cmd_preset "$@"
 			;;
+		auto|--auto)
+			braindance_cmd_auto
+			;;
 		shell)
 			braindance_cmd_shell
 			;;
@@ -536,7 +562,8 @@ braindance_main() {
 			echo "  source braindance       Export env vars (add to .zshrc)"
 			echo "  braindance --check             Show diagnostic status"
 			echo "  braindance set-key <key>       Store Z.ai API key"
-			echo "  braindance preset <name>       Override preset"
+			echo "  braindance preset <name>       Override mindset (persists)"
+			echo "  braindance auto                Revert to time-based auto-detection"
 			echo "  braindance shell               Print shell integration"
 			echo "  braindance hooks-install       Install Claude Code SessionStart hook"
 			echo "  braindance completions install Install zsh tab-completions"
