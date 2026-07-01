@@ -403,13 +403,13 @@ braindance_cmd_shell() {
 # braindance_cmd_hooks_install: Install Claude Code SessionStart hook
 braindance_cmd_hooks_install() {
 	local hooks_dir="$HOME/.claude/hooks"
-	local hook_file="$hooks_dir/SessionStart"
+	local marker="# === braindance ==="
+	local hook_script
 
 	mkdir -p "$hooks_dir"
 
-	cat > "$hook_file" <<- 'HOOK'
-		#!/usr/bin/env bash
-		# Braindance Claude Code hook — shows active preset at session start
+	hook_script=$(cat <<- 'HOOK'
+		# Braindance — show active preset at Claude Code session start
 		BRAINDANCE_DIR="${BRAINDANCE_DIR:-$HOME/.local/share/braindance}"
 		if [ -f "$BRAINDANCE_DIR/src/main.sh" ]; then
 			source "$BRAINDANCE_DIR/src/main.sh" 2>/dev/null
@@ -421,9 +421,29 @@ braindance_cmd_hooks_install() {
 			printf '╰──────────────────────────────────────────────────────╯\n'
 		fi
 	HOOK
-	chmod +x "$hook_file"
-	echo "[braindance] ✓ Claude Code hook installed: $hook_file"
-	echo "[braindance] Every session shows a braindance status box."
+	)
+
+	if [ -f "$hooks_dir/SessionStart" ]; then
+		if grep -q "$marker" "$hooks_dir/SessionStart" 2>/dev/null; then
+			echo "[braindance] ✓ Braindance hook already in SessionStart."
+			return 0
+		fi
+		# Append to existing hook (don't overwrite — claude-mem may be there)
+		echo "" >> "$hooks_dir/SessionStart"
+		echo "$marker" >> "$hooks_dir/SessionStart"
+		echo "$hook_script" >> "$hooks_dir/SessionStart"
+		echo "[braindance] ✓ Appended to existing SessionStart hook."
+	else
+		cat > "$hooks_dir/SessionStart" <<- SHEBANG
+			#!/usr/bin/env bash
+		SHEBANG
+		echo "" >> "$hooks_dir/SessionStart"
+		echo "$marker" >> "$hooks_dir/SessionStart"
+		echo "$hook_script" >> "$hooks_dir/SessionStart"
+		chmod +x "$hooks_dir/SessionStart"
+		echo "[braindance] ✓ Created SessionStart hook."
+	fi
+	echo "[braindance] Every Claude Code session now shows braindance status."
 }
 
 # braindance_cmd_completions: Install zsh tab-completions
