@@ -413,12 +413,17 @@ braindance_cmd_hooks_install() {
 		BRAINDANCE_DIR="${BRAINDANCE_DIR:-$HOME/.local/share/braindance}"
 		if [ -f "$BRAINDANCE_DIR/src/main.sh" ]; then
 			source "$BRAINDANCE_DIR/src/main.sh" 2>/dev/null
-			printf 'braindance: %s | Opus: %s\n' "${BRAINDANCE_ACTIVE_PRESET:-unknown}" "${ANTHROPIC_DEFAULT_OPUS_MODEL:-not-set}"
+			printf '╭─ braindance ─────────────────────────────────────────╮\n'
+			printf '│ mindset:  %-41s │\n' "${BRAINDANCE_ACTIVE_PRESET:-unknown}"
+			printf '│ opus:     %-41s │\n' "${ANTHROPIC_DEFAULT_OPUS_MODEL:-not-set}"
+			printf '│ sonnet:   %-41s │\n' "${ANTHROPIC_DEFAULT_SONNET_MODEL:-not-set}"
+			printf '│ haiku:    %-41s │\n' "${ANTHROPIC_DEFAULT_HAIKU_MODEL:-not-set}"
+			printf '╰──────────────────────────────────────────────────────╯\n'
 		fi
 	HOOK
 	chmod +x "$hook_file"
 	echo "[braindance] ✓ Claude Code hook installed: $hook_file"
-	echo "[braindance] It will show at the start of every Claude Code session."
+	echo "[braindance] Every session shows a braindance status box."
 }
 
 # braindance_cmd_skills: Delegate to skills.sh

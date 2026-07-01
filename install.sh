@@ -65,12 +65,26 @@ confirm() {
 	esac
 }
 
+_braindance_banner() {
+	echo ''
+	echo '██████╗ ██████╗  █████╗ ██╗███╗   ██╗██████╗  █████╗ ███╗   ██╗ ██████╗███████╗'
+	echo '██████╔╝██████╔╝██╔══██╗██║████╗  ██║██╔══██╗██╔══██╗████╗  ██║██╔════╝██╔════╝'
+	echo '██╔══██╗██╔══██╗███████║██║██╔██╗ ██║██████╔╝███████║██╔██╗ ██║██║     █████╗  '
+	echo '██║  ██║██║  ██║██╔══██║██║██║╚██╗██║██╔══██╗██╔══██║██║╚██╗██║██║     ██╔══╝  '
+	echo '██████╔╝██████╔╝██║  ██║██║██║ ╚████║██║  ██║██║  ██║██║ ╚████║╚██████╗███████╗'
+	echo '╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝╚══════╝'
+	echo '                                         ⚡ preset minds for Claude Code ⚡'
+	echo ''
+}
+
 install_braindance() {
 	local os shell_type shell_config date_cmd
 
 	os=$(detect_os)
 	shell_type=$(detect_shell)
 	shell_config=$(get_shell_config "$shell_type")
+
+	_braindance_banner
 
 	echo "╔══════════════════════════════════════╗"
 	echo "║     Braindance — Installing           ║"
