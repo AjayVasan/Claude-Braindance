@@ -2,47 +2,47 @@
 # Tests: Skills management system
 
 setup() {
-	export ZAI_SKILLS_DIR="${BATS_TEST_TMPDIR}/skills"
-	export ZAI_DIR="${BATS_TEST_TMPDIR}"
-	mkdir -p "$ZAI_SKILLS_DIR" "$ZAI_DIR"
+	export BRAINDANCE_SKILLS_DIR="${BATS_TEST_TMPDIR}/skills"
+	export BRAINDANCE_DIR="${BATS_TEST_TMPDIR}"
+	mkdir -p "$BRAINDANCE_SKILLS_DIR" "$BRAINDANCE_DIR"
 }
 
 @test "skills list shows available sources" {
-	# Source skills.sh directly and run list
 	run bash -c '
-		ZAI_SKILLS_DIR="'"$ZAI_SKILLS_DIR"'" source "'"${BATS_TEST_DIRNAME}/../src/skills.sh"'" && zai_skills_list
+		BRAINDANCE_SKILLS_DIR="'"$BRAINDANCE_SKILLS_DIR"'" \
+		source "'"${BATS_TEST_DIRNAME}/../src/skills.sh"'" \
+		&& braindance_skills_list
 	'
-	# Just check the script can be loaded
-	[ "$status" -eq 0 ] || true
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"Skill Sources"* ]]
 }
 
 @test "skills docs generates index.md" {
-	# Run in a subshell
-	ZAI_SKILLS_DIR="$ZAI_SKILLS_DIR" \
-	ZAI_DIR="$ZAI_DIR" \
-	bash -c '
-		source "'"${BATS_TEST_DIRNAME}/../src/skills.sh"'"
-		zai_skills_docs
-	' 2>&1 || true
-
-	# The doc should be generated somewhere — check it ran
-	:
+	run bash -c '
+		BRAINDANCE_SKILLS_DIR="'"$BRAINDANCE_SKILLS_DIR"'" \
+		BRAINDANCE_DIR="'"$BRAINDANCE_DIR"'" \
+		source "'"${BATS_TEST_DIRNAME}/../src/skills.sh"'" \
+		&& braindance_skills_docs
+	'
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"Documentation written"* ]]
 }
 
-@test "skills registry has 5 sources" {
+@test "skills registry sources are accessible" {
 	run bash -c '
-		ZAI_SKILLS_DIR="'"$ZAI_SKILLS_DIR"'" \
-		ZAI_DIR="'"$ZAI_DIR"'" \
-		source "'"${BATS_TEST_DIRNAME}/../src/skills.sh"'"
-		echo "${#SKILL_SOURCES[@]}"
+		BRAINDANCE_SKILLS_DIR="'"$BRAINDANCE_SKILLS_DIR"'" \
+		BRAINDANCE_DIR="'"$BRAINDANCE_DIR"'" \
+		source "'"${BATS_TEST_DIRNAME}/../src/skills.sh"'" \
+		&& braindance_skills_list 2>&1 >/dev/null
 	'
-	# Just verify it runs
-	:
+	[ "$status" -eq 0 ]
 }
 
 @test "install with no arguments shows usage" {
 	run bash -c '
-		ZAI_SKILLS_DIR="'"$ZAI_SKILLS_DIR"'" source "'"${BATS_TEST_DIRNAME}/../src/skills.sh"'" && zai_skills_install
+		BRAINDANCE_SKILLS_DIR="'"$BRAINDANCE_SKILLS_DIR"'" \
+		source "'"${BATS_TEST_DIRNAME}/../src/skills.sh"'" \
+		&& braindance_skills_install
 	'
 	[ "$status" -eq 1 ]
 	[[ "$output" == *"Usage"* ]]

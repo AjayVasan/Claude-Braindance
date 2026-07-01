@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
-# Zai — Skills Management
+# Braindance — Skills Management
 # Sources, installs, and documents Claude Code skills from curated repos
 #
 # Usage:
-#   zai skills list             List available skill sources
-#   zai skills install [name]   Install a skill source (or all)
-#   zai skills remove  [name]   Remove a skill source
-#   zai skills docs             Generate skills/index.md
+#   braindance skills list             List available skill sources
+#   braindance skills install [name]   Install a skill source (or all)
+#   braindance skills remove  [name]   Remove a skill source
+#   braindance skills docs             Generate skills/index.md
 
 set -euo pipefail
 
 # ─── Script Directory (cross-shell) ───────────────────────────────────────────
 
-ZAI_SCRIPT_DIR=""
+BRAINDANCE_SCRIPT_DIR=""
 if [ -n "${BASH_SOURCE-}" ] && [ "${BASH_SOURCE[0]}" ]; then
-	ZAI_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	BRAINDANCE_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 elif [ -n "${ZSH_VERSION-}" ]; then
-	ZAI_SCRIPT_DIR="${${(%):-%x}:A:h}" 2>/dev/null || ZAI_SCRIPT_DIR="$PWD"
+	BRAINDANCE_SCRIPT_DIR="${${(%):-%x}:A:h}" 2>/dev/null || BRAINDANCE_SCRIPT_DIR="$PWD"
 else
-	ZAI_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+	BRAINDANCE_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 fi
 
 # ─── Skill Source Registry ────────────────────────────────────────────────────
@@ -34,18 +34,18 @@ SKILL_SOURCES=(
 
 # ─── Utility Functions ────────────────────────────────────────────────────────
 
-zai_skills_dir() {
-	local dir="${ZAI_SKILLS_DIR:-$HOME/.local/share/zai/skills}"
+braindance_skills_dir() {
+	local dir="${BRAINDANCE_SKILLS_DIR:-$HOME/.local/share/braindance/skills}"
 	mkdir -p "$dir"
 	echo "$dir"
 }
 
 # ─── Commands ─────────────────────────────────────────────────────────────────
 
-# zai_skills_list: Display all available skill sources
-zai_skills_list() {
+# braindance_skills_list: Display all available skill sources
+braindance_skills_list() {
 	local skills_dir
-	skills_dir=$(zai_skills_dir)
+	skills_dir=$(braindance_skills_dir)
 
 	echo "╔══════════════════════════════════════╗"
 	echo "║     Claude Code Skill Sources         ║"
@@ -73,21 +73,21 @@ zai_skills_list() {
 
 	echo ""
 	echo "Usage:"
-	echo "  zai skills install <name>    Clone and install a skill"
-	echo "  zai skills install --all     Install all skills"
-	echo "  zai skills remove  <name>    Remove a skill"
-	echo "  zai skills docs              Generate skills index documentation"
+	echo "  braindance skills install <name>    Clone and install a skill"
+	echo "  braindance skills install --all     Install all skills"
+	echo "  braindance skills remove  <name>    Remove a skill"
+	echo "  braindance skills docs              Generate skills index documentation"
 	echo ""
 }
 
-# zai_skills_install: Clone and install skill source(s)
-zai_skills_install() {
+# braindance_skills_install: Clone and install skill source(s)
+braindance_skills_install() {
 	local target="${1:-}"
 	local skills_dir
-	skills_dir=$(zai_skills_dir)
+	skills_dir=$(braindance_skills_dir)
 
 	if [ -z "$target" ]; then
-		echo "[zai] Usage: zai skills install <name>  or  zai skills install --all" >&2
+		echo "[braindance] Usage: braindance skills install <name>  or  braindance skills install --all" >&2
 		return 1
 	fi
 
@@ -95,18 +95,18 @@ zai_skills_install() {
 		for source in "${SKILL_SOURCES[@]}"; do
 			local name
 			name=$(echo "$source" | cut -d'|' -f1)
-			zai_skills_install_one "$name"
+			braindance_skills_install_one "$name"
 		done
 		return 0
 	fi
 
-	zai_skills_install_one "$target"
+	braindance_skills_install_one "$target"
 }
 
-zai_skills_install_one() {
+braindance_skills_install_one() {
 	local name="$1"
 	local skills_dir url hint
-	skills_dir=$(zai_skills_dir)
+	skills_dir=$(braindance_skills_dir)
 
 	# Find matching source
 	local found=""
@@ -120,8 +120,8 @@ zai_skills_install_one() {
 	done
 
 	if [ -z "$found" ]; then
-		echo "[zai] Skill source '$name' not found in registry." >&2
-		echo "[zai] Run 'zai skills list' to see available sources." >&2
+		echo "[braindance] Skill source '$name' not found in registry." >&2
+		echo "[braindance] Run 'braindance skills list' to see available sources." >&2
 		return 1
 	fi
 
@@ -131,19 +131,19 @@ zai_skills_install_one() {
 	hint=$(echo "$found" | cut -d'|' -f4)
 
 	if [ -d "$skills_dir/$name" ]; then
-		echo "[zai] '$name' is already installed at $skills_dir/$name" >&2
-		echo "[zai] Remove first: zai skills remove $name" >&2
+		echo "[braindance] '$name' is already installed at $skills_dir/$name" >&2
+		echo "[braindance] Remove first: braindance skills remove $name" >&2
 		return 0
 	fi
 
-	echo "[zai] Installing: $name"
-	echo "[zai] Source:     $url"
+	echo "[braindance] Installing: $name"
+	echo "[braindance] Source:     $url"
 	echo ""
 
 	if ! command -v git &>/dev/null; then
-		echo "[zai] ERROR: git is required to install skills." >&2
-		echo "[zai] Install git first, or use the hint below." >&2
-		echo "[zai] Hint: $hint" >&2
+		echo "[braindance] ERROR: git is required to install skills." >&2
+		echo "[braindance] Install git first, or use the hint below." >&2
+		echo "[braindance] Hint: $hint" >&2
 		return 1
 	fi
 
@@ -151,56 +151,64 @@ zai_skills_install_one() {
 	local status="${PIPESTATUS[0]}"
 	if [ "$status" -eq 0 ]; then
 		echo ""
-		echo "[zai] ✓ '$name' installed at $skills_dir/$name"
-		echo "[zai] Hint: $hint"
+		echo "[braindance] ✓ '$name' installed at $skills_dir/$name"
+		echo "[braindance] Hint: $hint"
 	else
-		echo "[zai] ERROR: Failed to clone $name" >&2
+		echo "[braindance] ERROR: Failed to clone $name" >&2
 		return 1
 	fi
 }
 
-# zai_skills_remove: Remove installed skill source
-zai_skills_remove() {
+# braindance_skills_remove: Remove installed skill source
+braindance_skills_remove() {
 	local name="$1"
-	local skills_dir
-	skills_dir=$(zai_skills_dir)
+	local skills_dir sanitized
+	skills_dir=$(braindance_skills_dir)
 
 	if [ -z "$name" ]; then
-		echo "[zai] Usage: zai skills remove <name>" >&2
-		echo "[zai] Run 'zai skills list' to see installed sources." >&2
+		echo "[braindance] Usage: braindance skills remove <name>" >&2
+		echo "[braindance] Run 'braindance skills list' to see installed sources." >&2
 		return 1
 	fi
 
-	local target="$skills_dir/$name"
+	# Sanitize: strip path separators and parent-dir traversal (H2)
+	sanitized="${name//\//}"
+	sanitized="${sanitized//\.\./}"
+	if [ "$sanitized" != "$name" ]; then
+		echo "[braindance] ERROR: Invalid skill name: $name" >&2
+		return 1
+	fi
+
+	local target="$skills_dir/$sanitized"
 	if [ ! -d "$target" ]; then
-		echo "[zai] '$name' is not installed." >&2
+		echo "[braindance] '$name' is not installed." >&2
 		return 1
 	fi
 
 	rm -rf "$target"
-	echo "[zai] ✓ '$name' removed."
+	echo "[braindance] ✓ '$name' removed."
 }
 
-# zai_skills_docs: Generate skills/index.md
-zai_skills_docs() {
+# braindance_skills_docs: Generate skills/index.md
+braindance_skills_docs() {
 	local skills_dir
-	skills_dir=$(zai_skills_dir)
+	skills_dir=$(braindance_skills_dir)
 
 	local doc_file
 	# Write alongside the script by default
-	if [ -d "$ZAI_SCRIPT_DIR/.." ]; then
-		doc_file="$(cd "$ZAI_SCRIPT_DIR/.." && pwd)/skills/index.md"
+	if [ -d "$BRAINDANCE_SCRIPT_DIR/.." ]; then
+		doc_file="$(cd "$BRAINDANCE_SCRIPT_DIR/.." && pwd)/skills/index.md"
 	else
 		doc_file="./skills/index.md"
 	fi
 
-	echo "[zai] Generating skills documentation → $doc_file"
+	echo "[braindance] Generating skills documentation → $doc_file"
 
 	cat > "$doc_file" <<- 'MD_HEADER'
-		# Zai — Claude Code Skills Ecosystem
+		# Braindance — Claude Code Skills Ecosystem
 
 		This index catalogs the most impactful Claude Code skills, plugins, and tools
-		available for the Claude Code + Z.ai ecosystem. Zai helps you discover and
+		available for the Claude Code + Z.ai ecosystem. Braindance helps you discover and
 		install these skill sources.
 
 		---
@@ -208,11 +216,11 @@ zai_skills_docs() {
 		## Quick Install
 
 		```bash
-		# Install via Zai (requires git):
-		zai skills install --all
+		# Install via Braindance (requires git):
+		braindance skills install --all
 
 		# Or install individually:
-		zai skills install <name>
+		braindance skills install <name>
 		```
 
 		---
@@ -267,38 +275,38 @@ zai_skills_docs() {
 
 		---
 
-		*Generated by Zai — https://github.com/ajayvasan-nitro/Zai*
+		*Generated by Braindance — https://github.com/AjayVasan/Claude-Braindance*
 	MD_KG
 
-	echo "[zai] ✓ Documentation written to $doc_file"
+	echo "[braindance] ✓ Documentation written to $doc_file"
 }
 
 # ─── Dispatcher ───────────────────────────────────────────────────────────────
 
-zai_skills_main() {
+braindance_skills_main() {
 	if [ $# -eq 0 ]; then
-		zai_skills_list
+		braindance_skills_list
 		return 0
 	fi
 
 	case "${1:-}" in
 		list)
-			zai_skills_list
+			braindance_skills_list
 			;;
 		install)
 			shift
-			zai_skills_install "$@"
+			braindance_skills_install "$@"
 			;;
 		remove)
 			shift
-			zai_skills_remove "$@"
+			braindance_skills_remove "$@"
 			;;
 		docs)
-			zai_skills_docs
+			braindance_skills_docs
 			;;
 		*)
-			echo "[zai] Unknown skills command: ${1:-}" >&2
-			echo "[zai] Usage: zai skills <list|install|remove|docs>" >&2
+			echo "[braindance] Unknown skills command: ${1:-}" >&2
+			echo "[braindance] Usage: braindance skills <list|install|remove|docs>" >&2
 			return 1
 			;;
 	esac
@@ -306,4 +314,4 @@ zai_skills_main() {
 
 # ─── Entry Point ──────────────────────────────────────────────────────────────
 
-zai_skills_main "$@"
+braindance_skills_main "$@"

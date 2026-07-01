@@ -30,7 +30,7 @@ Claude Code users with Z.ai API access have four distinct use cases — daily co
 
 ```
 Claude-Braindance/
-├── zai                      # Symlink → src/main.sh (installed to PATH)
+├── braindance               # Symlink → src/main.sh (installed to PATH)
 ├── install.sh               # ~70 lines — one-shot setup
 ├── Makefile                 # ~20 lines — convenience targets
 ├── README.md
@@ -76,7 +76,7 @@ The script operates in two modes depending on how it's invoked:
 
 ```
 source src/main.sh   → Exports ANTHROPIC_* env vars to current shell
-zai --check          → Executes CLI commands
+braindance --check    → Executes CLI commands
 ```
 
 Detection works in both bash and zsh using shell-specific source detection.
@@ -156,9 +156,9 @@ Adding a new provider = create a new preset `.env` file with the provider's base
 
 | ID | Issue | Fix | Lines |
 |----|-------|-----|-------|
-| E1 | Missing/empty API key | `[ -z "$ZAI_API_KEY" ] && echo error && return 1` | 3 |
+| E1 | Missing/empty API key | `[ -z "$BRAINDANCE_API_KEY" ] && echo error && return 1` | 3 |
 | E2 | Token file permissions | `chmod 600` after write | 1 |
-| E3 | Non-IST timezone | `TZ=${ZAI_TZ:-Asia/Kolkata}` + `--check` shows TZ | 1 |
+| E3 | Non-IST timezone | `TZ=${BRAINDANCE_TZ:-Asia/Kolkata}` + `--check` shows TZ | 1 |
 | E4 | Shell-agnostic install | `case $SHELL in zsh|bash|fish)` in install.sh | 5 |
 | E5 | BSD vs GNU date | OS detection + correct date flags | 10 |
 | E6 | 11:30 boundary clock skew | ±60s grace window + deterministic function | 5 |
@@ -210,16 +210,16 @@ The installer does NOT modify `.zshrc` without asking. Explicit confirmation req
 
 | Command | Description |
 |---------|-------------|
-| `zai --check` | Full diagnostic: time, preset, model map, API key, env vars |
-| `zai set-key <key>` | Store Z.ai API key (chmod 600) |
-| `zai preset <name>` | Override active preset temporarily |
-| `zai shell` | Print shell integration snippet |
-| `zai skills list` | Show available skill sources |
-| `zai skills install <name>` | Clone and install a skill from GitHub |
-| `zai skills install --all` | Install all curated skills |
-| `zai skills remove <name>` | Remove installed skill |
-| `zai skills docs` | Generate skills/index.md |
-| `zai --help` | Show usage |
+| `braindance --check` | Full diagnostic: time, preset, model map, API key, env vars |
+| `braindance set-key <key>` | Store Z.ai API key (chmod 600) |
+| `braindance preset <name>` | Override active preset temporarily |
+| `braindance shell` | Print shell integration snippet |
+| `braindance skills list` | Show available skill sources |
+| `braindance skills install <name>` | Clone and install a skill from GitHub |
+| `braindance skills install --all` | Install all curated skills |
+| `braindance skills remove <name>` | Remove installed skill |
+| `braindance skills docs` | Generate skills/index.md |
+| `braindance --help` | Show usage |
 
 ---
 
@@ -230,12 +230,12 @@ git clone https://github.com/AjayVasan/Claude-Braindance.git
 cd Claude-Braindance
 bash install.sh
   → Detects: Linux | macOS + zsh | bash | fish
-  → Creates: ~/.local/share/zai/{presets,skills,api-key}
-  → Symlinks: ~/.local/bin/zai → src/main.sh
+  → Creates: ~/.local/share/braindance/{presets,skills,api-key}
+  → Symlinks: ~/.local/bin/braindance → src/main.sh
   → Prompts: Add to shell config? [Y/n]
   → Prompts: Set Z.ai API key? [y/N]
 → exec $SHELL
-→ zai --check
+→ braindance --check
 → claude          # Uses time-based preset
 → claude-doc      # Always docs-utility preset
 ```
@@ -246,7 +246,7 @@ bash install.sh
 
 ```bash
 make test        # Runs all 23 bats tests
-make check       # Shows zai --check status
+make check       # Shows braindance --check status
 make lint        # Runs shellcheck on all scripts
 ```
 

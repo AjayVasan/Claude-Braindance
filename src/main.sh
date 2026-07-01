@@ -1,68 +1,68 @@
 #!/usr/bin/env bash
-# Zai — Claude Code Preset Switcher & Skills Manager
+# Braindance — Claude Code Preset Switcher & Skills Manager
 # Dual-purpose: source for env export, execute for CLI commands
 #
 # Usage:
 #   source src/main.sh           # Export env vars for current shell
-#   zai --check                  # Show diagnostic status
-#   zai set-key <api_key>        # Store Z.ai API key
-#   zai preset <name>            # Override active preset
-#   zai shell                    # Emit shell integration snippet
-#   zai skills <list|docs>       # Manage skills
+#   braindance --check           # Show diagnostic status
+#   braindance set-key <token>   # Store API key
+#   braindance preset <name>     # Override active preset
+#   braindance shell             # Emit shell integration snippet
+#   braindance skills <list|docs> # Manage skills
 #
 # Environment:
-#   ZAI_DIR         Config directory (default: ~/.local/share/zai)
-#   ZAI_TZ          Timezone for preset switching (default: Asia/Kolkata)
-#   ZAI_API_KEY     Z.ai API token (can be set via file or env var)
-#   ZAI_PRESET_OVERRIDE  Force a specific preset
+#   BRAINDANCE_DIR         Config directory (default: ~/.local/share/braindance)
+#   BRAINDANCE_TZ          Timezone for preset switching (default: Asia/Kolkata)
+#   BRAINDANCE_API_KEY     API token (can be set via file or env var)
+#   BRAINDANCE_PRESET_OVERRIDE  Force a specific preset
 
 set -euo pipefail
 
 # ─── Script Directory (cross-shell: bash + zsh) ──────────────────────────────
 
-ZAI_SCRIPT_DIR=""
+BRAINDANCE_SCRIPT_DIR=""
 if [ -n "${BASH_SOURCE-}" ] && [ "${BASH_SOURCE[0]}" ]; then
-	ZAI_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	BRAINDANCE_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 elif [ -n "${ZSH_VERSION-}" ]; then
 	# In zsh, use the %x expansion to get the sourced file path
-	ZAI_SCRIPT_DIR="${${(%):-%x}:A:h}" 2>/dev/null || ZAI_SCRIPT_DIR="$PWD"
+	BRAINDANCE_SCRIPT_DIR="${${(%):-%x}:A:h}" 2>/dev/null || BRAINDANCE_SCRIPT_DIR="$PWD"
 else
-	ZAI_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+	BRAINDANCE_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 fi
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
-ZAI_DIR="${ZAI_DIR:-$HOME/.local/share/zai}"
-ZAI_PRESETS_DIR="${ZAI_DIR}/presets"
-ZAI_SKILLS_DIR="${ZAI_DIR}/skills"
-ZAI_API_KEY_FILE="${ZAI_DIR}/api-key"
-ZAI_TZ="${ZAI_TZ:-Asia/Kolkata}"
-ZAI_PRESET_OVERRIDE="${ZAI_PRESET_OVERRIDE:-}"
-ZAI_DEFAULT_PRESET="daily-coding"
+BRAINDANCE_DIR="${BRAINDANCE_DIR:-$HOME/.local/share/braindance}"
+BRAINDANCE_PRESETS_DIR="${BRAINDANCE_DIR}/presets"
+BRAINDANCE_SKILLS_DIR="${BRAINDANCE_DIR}/skills"
+BRAINDANCE_API_KEY_FILE="${BRAINDANCE_DIR}/api-key"
+BRAINDANCE_TZ="${BRAINDANCE_TZ:-Asia/Kolkata}"
+BRAINDANCE_PRESET_OVERRIDE="${BRAINDANCE_PRESET_OVERRIDE:-}"
+BRAINDANCE_DEFAULT_PRESET="daily-coding"
 
 # ─── Time Detection ───────────────────────────────────────────────────────────
 
-# zai_detect_os: Detects OS for date command compatibility (E5)
+# braindance_detect_os: Detects OS for date command compatibility (E5)
 # Returns: "linux" or "macos"
-zai_detect_os() {
+braindance_detect_os() {
 	case "$(uname -s)" in
 		Darwin) echo "macos" ;;
 		*)      echo "linux" ;;
 	esac
 }
 
-# zai_get_time_ist: Returns current IST time as 4-digit string (HHMM)
+# braindance_get_time_ist: Returns current IST time as 4-digit string (HHMM)
 # Handles BSD vs GNU date flags (E5)
 # Applies ±60s grace window at 11:30 boundary (E6)
-zai_get_time_ist() {
+braindance_get_time_ist() {
 	local os raw_time minute_part
-	os=$(zai_detect_os)
+	os=$(braindance_detect_os)
 	case "$os" in
 		macos)
-			raw_time=$(TZ="$ZAI_TZ" date +%H:%M 2>/dev/null || TZ="$ZAI_TZ" date -j +%H:%M)
+			raw_time=$(TZ="$BRAINDANCE_TZ" date +%H:%M 2>/dev/null || TZ="$BRAINDANCE_TZ" date -j +%H:%M)
 			;;
 		*)
-			raw_time=$(TZ="$ZAI_TZ" date +%H:%M)
+			raw_time=$(TZ="$BRAINDANCE_TZ" date +%H:%M)
 			;;
 	esac
 
@@ -77,15 +77,15 @@ zai_get_time_ist() {
 	esac
 }
 
-# zai_detect_preset: Maps current IST time to preset name
+# braindance_detect_preset: Maps current IST time to preset name
 # Time windows:
 #   00:00-06:29 → daily (default — late night is uncategorized)
 #   06:30-11:29 → offpeak (before peak hours)
 #   11:30-15:29 → peak (peak thinking hours)
 #   15:30-23:59 → offpeak (after peak hours)
-zai_detect_preset() {
+braindance_detect_preset() {
 	local time_ist
-	time_ist=$(zai_get_time_ist)
+	time_ist=$(braindance_get_time_ist)
 
 	# Strip leading zeros for numeric comparison
 	local numeric_time=$((10#$time_ist + 0))
@@ -103,43 +103,43 @@ zai_detect_preset() {
 
 # ─── Preset Management ────────────────────────────────────────────────────────
 
-# zai_get_preset_path: Resolves preset file path
+# braindance_get_preset_path: Resolves preset file path
 # Arguments: preset name (without .env)
-zai_get_preset_path() {
-	local name="${1:-$ZAI_DEFAULT_PRESET}"
+braindance_get_preset_path() {
+	local name="${1:-$BRAINDANCE_DEFAULT_PRESET}"
 	local search_paths
-	search_paths="$ZAI_PRESETS_DIR/${name}.env"
+	search_paths="$BRAINDANCE_PRESETS_DIR/${name}.env"
 
 	if [ ! -f "$search_paths" ]; then
-		if [ -d "$ZAI_SCRIPT_DIR/../presets" ]; then
-			search_paths="$ZAI_SCRIPT_DIR/../presets/${name}.env"
+		if [ -d "$BRAINDANCE_SCRIPT_DIR/../presets" ]; then
+			search_paths="$BRAINDANCE_SCRIPT_DIR/../presets/${name}.env"
 		fi
 	fi
 
 	echo "$search_paths"
 }
 
-# zai_apply_preset: Sources the preset .env file to export its vars
+# braindance_apply_preset: Sources the preset .env file to export its vars
 # Arguments: preset name
-zai_apply_preset() {
+braindance_apply_preset() {
 	local name="${1:-}"
 	local preset_file
 
 	# Use override if set
-	if [ -n "$ZAI_PRESET_OVERRIDE" ]; then
-		name="$ZAI_PRESET_OVERRIDE"
+	if [ -n "$BRAINDANCE_PRESET_OVERRIDE" ]; then
+		name="$BRAINDANCE_PRESET_OVERRIDE"
 	elif [ -z "$name" ]; then
-		name=$(zai_detect_preset)
+		name=$(braindance_detect_preset)
 	fi
 
-	preset_file=$(zai_get_preset_path "$name")
+	preset_file=$(braindance_get_preset_path "$name")
 
 	if [ ! -f "$preset_file" ]; then
-		echo "[zai] WARNING: Preset '$name' not found at $preset_file" >&2
-		echo "[zai] Falling back to: $ZAI_DEFAULT_PRESET" >&2
-		preset_file=$(zai_get_preset_path "$ZAI_DEFAULT_PRESET")
+		echo "[braindance] WARNING: Preset '$name' not found at $preset_file" >&2
+		echo "[braindance] Falling back to: $BRAINDANCE_DEFAULT_PRESET" >&2
+		preset_file=$(braindance_get_preset_path "$BRAINDANCE_DEFAULT_PRESET")
 		if [ ! -f "$preset_file" ]; then
-			echo "[zai] ERROR: Default preset also missing!" >&2
+			echo "[braindance] ERROR: Default preset also missing!" >&2
 			return 1
 		fi
 	fi
@@ -160,71 +160,71 @@ zai_apply_preset() {
 		esac
 	done < "$preset_file"
 
-	ZAI_APPLIED_PRESET="$name"
+	BRAINDANCE_APPLIED_PRESET="$name"
 }
 
 # ─── API Key Management ───────────────────────────────────────────────────────
 
-# zai_get_key: Reads API key from file or env var
-zai_get_key() {
-	if [ -n "${ZAI_API_KEY:-}" ]; then
-		echo "$ZAI_API_KEY"
-	elif [ -f "$ZAI_API_KEY_FILE" ]; then
-		cat "$ZAI_API_KEY_FILE"
+# braindance_get_key: Reads API key from file or env var
+braindance_get_key() {
+	if [ -n "${BRAINDANCE_API_KEY:-}" ]; then
+		echo "$BRAINDANCE_API_KEY"
+	elif [ -f "$BRAINDANCE_API_KEY_FILE" ]; then
+		cat "$BRAINDANCE_API_KEY_FILE"
 	fi
 }
 
-# zai_verify_key: Ensures API key is set before export (E1)
+# braindance_verify_key: Ensures API key is set before export (E1)
 # Returns 0 if key is set, 1 if missing
-zai_verify_key() {
+braindance_verify_key() {
 	local key
-	key=$(zai_get_key)
+	key=$(braindance_get_key)
 	if [ -z "$key" ]; then
-		echo "[zai] WARNING: Z.ai API key not set." >&2
-		echo "[zai] Set it with: zai set-key <your-api-key>" >&2
-		echo "[zai] Or export:   export ZAI_API_KEY=sk-..." >&2
+		echo "[braindance] WARNING: Z.ai API key not set." >&2
+		echo "[braindance] Set it with: braindance set-key <your-api-key>" >&2
+		echo "[braindance] Or export:   export BRAINDANCE_API_KEY=sk-..." >&2
 		return 1
 	fi
 	echo "$key"
 }
 
-# zai_store_key: Writes API key to secure file (E2)
+# braindance_store_key: Writes API key to secure file (E2)
 # Arguments: API key string
-zai_store_key() {
+braindance_store_key() {
 	local key="$1"
 	if [ -z "$key" ]; then
-		echo "[zai] ERROR: No API key provided." >&2
-		echo "[zai] Usage: zai set-key <your-zai-api-key>" >&2
+		echo "[braindance] ERROR: No API key provided." >&2
+		echo "[braindance] Usage: braindance set-key <your-api-key>" >&2
 		return 1
 	fi
 
-	mkdir -p "$ZAI_DIR"
-	echo "$key" > "$ZAI_API_KEY_FILE"
-	chmod 600 "$ZAI_API_KEY_FILE"
-	echo "[zai] API key stored securely at $ZAI_API_KEY_FILE"
+	mkdir -p "$BRAINDANCE_DIR"
+	echo "$key" > "$BRAINDANCE_API_KEY_FILE"
+	chmod 600 "$BRAINDANCE_API_KEY_FILE"
+	echo "[braindance] API key stored securely at $BRAINDANCE_API_KEY_FILE"
 }
 
 # ─── Environment Export ───────────────────────────────────────────────────────
 
-# zai_export: Main export function — detects preset, applies it, exports vars
-zai_export() {
+# braindance_export: Main export function — detects preset, applies it, exports vars
+braindance_export() {
 	local key
 
 	# Apply preset (call directly, NOT via $() — subshell kills exports)
-	zai_apply_preset
+	braindance_apply_preset
 
-	# Set ZAI_API_KEY from file if not already in env
-	if [ -z "${ZAI_API_KEY:-}" ] && [ -f "$ZAI_API_KEY_FILE" ]; then
-		export ZAI_API_KEY
-		ZAI_API_KEY=$(cat "$ZAI_API_KEY_FILE")
+	# Set BRAINDANCE_API_KEY from file if not already in env
+	if [ -z "${BRAINDANCE_API_KEY:-}" ] && [ -f "$BRAINDANCE_API_KEY_FILE" ]; then
+		export BRAINDANCE_API_KEY
+		BRAINDANCE_API_KEY=$(cat "$BRAINDANCE_API_KEY_FILE")
 	fi
 
 	# Export the key for substitution in preset env files
-	if [ -n "${ZAI_API_KEY:-}" ]; then
-		export ANTHROPIC_AUTH_TOKEN="$ZAI_API_KEY"
+	if [ -n "${BRAINDANCE_API_KEY:-}" ]; then
+		export ANTHROPIC_AUTH_TOKEN="$BRAINDANCE_API_KEY"
 	fi
 
-	export ZAI_ACTIVE_PRESET="${ZAI_APPLIED_PRESET:-}"
+	export BRAINDANCE_ACTIVE_PRESET="${BRAINDANCE_APPLIED_PRESET:-}"
 
 	# Export is complete — env vars are now set for Claude Code
 	return 0
@@ -232,19 +232,19 @@ zai_export() {
 
 # ─── CLI Commands ─────────────────────────────────────────────────────────────
 
-# zai_cmd_check: Diagnostic status (E3: shows timezone info)
-zai_cmd_check() {
+# braindance_cmd_check: Diagnostic status (E3: shows timezone info)
+braindance_cmd_check() {
 	local preset_name key ist_time os shell_type
 	local preset_display="" key_status="" key_hint=""
 
-	os=$(zai_detect_os)
-	ist_time=$(zai_get_time_ist)
-	preset_name=$(zai_detect_preset)
-	key=$(zai_get_key)
+	os=$(braindance_detect_os)
+	ist_time=$(braindance_get_time_ist)
+	preset_name=$(braindance_detect_preset)
+	key=$(braindance_get_key)
 	shell_type="${SHELL##*/}"
 
 	echo "╔══════════════════════════════════════╗"
-	echo "║        zai — utility status          ║"
+	echo "║     braindance — utility status      ║"
 	echo "╚══════════════════════════════════════╝"
 	echo ""
 	echo "System"
@@ -253,13 +253,13 @@ zai_cmd_check() {
 	echo "  Date flags:      $([ "$os" = "macos" ] && echo "BSD (-j)" || echo "GNU (-d)")"
 	echo ""
 	echo "Timezone"
-	echo "  Source:          ${ZAI_TZ}"
-	echo "  Current (IST):   $(TZ="$ZAI_TZ" date '+%H:%M %Z' 2>/dev/null)"
+	echo "  Source:          ${BRAINDANCE_TZ}"
+	echo "  Current (IST):   $(TZ="$BRAINDANCE_TZ" date '+%H:%M %Z' 2>/dev/null)"
 	echo "  HHMM numeric:    ${ist_time}"
 	echo ""
 	echo "Preset"
-	if [ -n "$ZAI_PRESET_OVERRIDE" ]; then
-		echo "  Active:          ${ZAI_PRESET_OVERRIDE} (overridden)"
+	if [ -n "$BRAINDANCE_PRESET_OVERRIDE" ]; then
+		echo "  Active:          ${BRAINDANCE_PRESET_OVERRIDE} (overridden)"
 	else
 		echo "  Active:          ${preset_name}"
 	fi
@@ -267,9 +267,9 @@ zai_cmd_check() {
 	echo "  Model map:"
 
 	# Show model mapping by sourcing the active preset
-	local active_preset="${ZAI_PRESET_OVERRIDE:-$preset_name}"
+	local active_preset="${BRAINDANCE_PRESET_OVERRIDE:-$preset_name}"
 	local preset_file
-	preset_file=$(zai_get_preset_path "$active_preset")
+	preset_file=$(braindance_get_preset_path "$active_preset")
 	if [ -f "$preset_file" ]; then
 		while IFS='=' read -r key_eq val; do
 			case "$key_eq" in
@@ -288,16 +288,16 @@ zai_cmd_check() {
 	if [ -n "$key" ]; then
 		echo "  Status:          set"
 		echo "  Prefix:          ${key:0:8}..."
-		if [ -f "$ZAI_API_KEY_FILE" ]; then
+		if [ -f "$BRAINDANCE_API_KEY_FILE" ]; then
 			local perms
-			perms=$(stat -c '%a' "$ZAI_API_KEY_FILE" 2>/dev/null)
-			echo "  File perms:      ${perms} ($([ "$perms" = "600" ] && echo "secure ✓" || echo "WARNING: not 600!"))"
+			perms=$(stat -c '%a' "$BRAINDANCE_API_KEY_FILE" 2>/dev/null || stat -f '%Lp' "$BRAINDANCE_API_KEY_FILE" 2>/dev/null)
+			echo "  File perms:      ${perms} ($([ "$perms" = "600" ] && echo "secure" || echo "WARNING: not 600!"))"
 		else
-			echo "  Source:          env var ZAI_API_KEY"
+			echo "  Source:          env var BRAINDANCE_API_KEY"
 		fi
 	else
 		echo "  Status:          NOT SET"
-		echo "  Hint:            zai set-key <your-api-key>"
+		echo "  Hint:            braindance set-key <your-api-key>"
 	fi
 
 	# Active env vars preview
@@ -307,9 +307,9 @@ zai_cmd_check() {
 	base_url=$(echo "${ANTHROPIC_BASE_URL:-https://api.z.ai/api/anthropic}")
 
 	# Read model values directly from the active preset file (not from potentially stale env vars)
-	local active_preset="${ZAI_PRESET_OVERRIDE:-$preset_name}"
+	local active_preset="${BRAINDANCE_PRESET_OVERRIDE:-$preset_name}"
 	local preset_file
-	preset_file=$(zai_get_preset_path "$active_preset")
+	preset_file=$(braindance_get_preset_path "$active_preset")
 	if [ -f "$preset_file" ]; then
 		opus=$(grep -m1 '^ANTHROPIC_DEFAULT_OPUS_MODEL=' "$preset_file" 2>/dev/null | cut -d= -f2)
 		sonnet=$(grep -m1 '^ANTHROPIC_DEFAULT_SONNET_MODEL=' "$preset_file" 2>/dev/null | cut -d= -f2)
@@ -333,22 +333,22 @@ zai_cmd_check() {
 	echo ""
 }
 
-# zai_cmd_set_key: Store API key
-zai_cmd_set_key() {
+# braindance_cmd_set_key: Store API key
+braindance_cmd_set_key() {
 	if [ $# -lt 1 ]; then
-		echo "[zai] Usage: zai set-key <your-zai-api-key>" >&2
-		echo "[zai] Hint:  zai set-key sk-your-key-here" >&2
+		echo "[braindance] Usage: braindance set-key <your-api-key>" >&2
+		echo "[braindance] Hint:  braindance set-key sk-your-key-here" >&2
 		return 1
 	fi
-	zai_store_key "$1"
+	braindance_store_key "$1"
 }
 
-# zai_cmd_preset: Override the active preset
-zai_cmd_preset() {
+# braindance_cmd_preset: Override the active preset
+braindance_cmd_preset() {
 	if [ $# -lt 1 ]; then
-		echo "[zai] Usage: zai preset <preset-name>" >&2
-		echo "[zai] Available presets:" >&2
-		for p in "$ZAI_PRESETS_DIR"/*.env; do
+		echo "[braindance] Usage: braindance preset <preset-name>" >&2
+		echo "[braindance] Available presets:" >&2
+		for p in "$BRAINDANCE_PRESETS_DIR"/*.env; do
 			local name
 			name=$(basename "$p" .env)
 			echo "  - $name"
@@ -358,53 +358,53 @@ zai_cmd_preset() {
 
 	local name="$1"
 	local preset_file
-	preset_file=$(zai_get_preset_path "$name")
+	preset_file=$(braindance_get_preset_path "$name")
 	if [ ! -f "$preset_file" ]; then
-		echo "[zai] ERROR: Preset '$name' not found." >&2
-		echo "[zai] Available: daily-coding, deep-thinking-offpeak, deep-thinking-peak, docs-utility" >&2
+		echo "[braindance] ERROR: Preset '$name' not found." >&2
+		echo "[braindance] Available: daily-coding, deep-thinking-offpeak, deep-thinking-peak, docs-utility" >&2
 		return 1
 	fi
 
-	export ZAI_PRESET_OVERRIDE="$name"
-	zai_apply_preset "$name"
-	echo "[zai] Preset overridden to: $name"
-	echo "[zai] Run 'zai --check' to verify."
+	export BRAINDANCE_PRESET_OVERRIDE="$name"
+	braindance_apply_preset "$name"
+	echo "[braindance] Preset overridden to: $name"
+	echo "[braindance] Run 'braindance --check' to verify."
 }
 
-# zai_cmd_shell: Emit shell integration snippet
-zai_cmd_shell() {
+# braindance_cmd_shell: Emit shell integration snippet
+braindance_cmd_shell() {
 	local shell_type="${SHELL##*/}"
 
 	case "$shell_type" in
 		fish)
 			cat <<-FISH
-				# Zai — auto-switch Claude Code presets by IST time
-				set -gx ZAI_DIR \$ZAI_DIR $HOME/.local/share/zai
-				source \$ZAI_DIR/src/main.sh
-				alias claude-doc="env ZAI_PRESET_OVERRIDE=docs-utility claude"
+				# Braindance — auto-switch Claude Code presets by IST time
+				set -gx BRAINDANCE_DIR \$BRAINDANCE_DIR $HOME/.local/share/braindance
+				source \$BRAINDANCE_DIR/src/main.sh
+				alias claude-doc="env BRAINDANCE_PRESET_OVERRIDE=docs-utility claude"
 			FISH
 			;;
 		*)
 			cat <<-EOBASH
-				# Zai — auto-switch Claude Code presets by IST time
-				export ZAI_DIR="\${ZAI_DIR:-\$HOME/.local/share/zai}"
-				[[ -f "\$ZAI_DIR/src/main.sh" ]] && source "\$ZAI_DIR/src/main.sh"
-				alias claude-doc='ZAI_PRESET_OVERRIDE=docs-utility claude'
+				# Braindance — auto-switch Claude Code presets by IST time
+				export BRAINDANCE_DIR="\${BRAINDANCE_DIR:-\$HOME/.local/share/braindance}"
+				[[ -f "\$BRAINDANCE_DIR/src/main.sh" ]] && source "\$BRAINDANCE_DIR/src/main.sh"
+				alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility claude'
 			EOBASH
 			;;
 	esac
 }
 
-# zai_cmd_skills: Delegate to skills.sh
-zai_cmd_skills() {
-	local skills_script="$ZAI_DIR/src/skills.sh"
-	if [ ! -f "$skills_script" ] && [ -n "$ZAI_SCRIPT_DIR" ]; then
-		skills_script="$ZAI_SCRIPT_DIR/skills.sh"
+# braindance_cmd_skills: Delegate to skills.sh
+braindance_cmd_skills() {
+	local skills_script="$BRAINDANCE_DIR/src/skills.sh"
+	if [ ! -f "$skills_script" ] && [ -n "$BRAINDANCE_SCRIPT_DIR" ]; then
+		skills_script="$BRAINDANCE_SCRIPT_DIR/skills.sh"
 	fi
 
 	if [ ! -f "$skills_script" ]; then
-		echo "[zai] ERROR: skills.sh not found. Has zai been installed?" >&2
-		echo "[zai] Run install.sh first, or check ZAI_DIR." >&2
+		echo "[braindance] ERROR: skills.sh not found. Has braindance been installed?" >&2
+		echo "[braindance] Run install.sh first, or check BRAINDANCE_DIR." >&2
 		return 1
 	fi
 
@@ -414,47 +414,47 @@ zai_cmd_skills() {
 
 # ─── Main Dispatch ────────────────────────────────────────────────────────────
 
-zai_main() {
+braindance_main() {
 	if [ $# -eq 0 ]; then
-		zai_export
+		braindance_export
 		return $?
 	fi
 
 	case "${1:-}" in
 		--check|-c|status)
-			zai_cmd_check
+			braindance_cmd_check
 			;;
 		set-key)
 			shift
-			zai_cmd_set_key "$@"
+			braindance_cmd_set_key "$@"
 			;;
 		preset)
 			shift
-			zai_cmd_preset "$@"
+			braindance_cmd_preset "$@"
 			;;
 		shell)
-			zai_cmd_shell
+			braindance_cmd_shell
 			;;
 		skills)
 			shift
-			zai_cmd_skills "$@"
+			braindance_cmd_skills "$@"
 			;;
 		--help|-h)
-			echo "Zai — Claude Code Preset Switcher & Skills Manager"
+			echo "Braindance — Claude Code Preset Switcher & Skills Manager"
 			echo ""
 			echo "Usage:"
-			echo "  source zai              Export env vars (add to .zshrc)"
-			echo "  zai --check             Show diagnostic status"
-			echo "  zai set-key <key>       Store Z.ai API key"
-			echo "  zai preset <name>       Override preset"
-			echo "  zai shell               Print shell integration"
-			echo "  zai skills list         List available skills"
-			echo "  zai skills docs         Generate skills index"
-			echo "  zai --help              This help"
+			echo "  source braindance       Export env vars (add to .zshrc)"
+			echo "  braindance --check             Show diagnostic status"
+			echo "  braindance set-key <key>       Store Z.ai API key"
+			echo "  braindance preset <name>       Override preset"
+			echo "  braindance shell               Print shell integration"
+			echo "  braindance skills list         List available skills"
+			echo "  braindance skills docs         Generate skills index"
+			echo "  braindance --help              This help"
 			;;
 		*)
-			echo "[zai] Unknown command: ${1:-}" >&2
-			echo "[zai] Run 'zai --help' for usage." >&2
+			echo "[braindance] Unknown command: ${1:-}" >&2
+			echo "[braindance] Run 'braindance --help' for usage." >&2
 			return 1
 			;;
 	esac
@@ -465,7 +465,7 @@ zai_main() {
 # Detect if being sourced (works in bash and zsh)
 # When sourced, export env vars automatically
 # When executed, dispatch CLI command
-_zai_is_sourced() {
+_braindance_is_sourced() {
 	# In zsh: check ZSH_EVAL_CONTEXT for file-sourcing,
 	# also check if $0 does not end with main.sh (sourced vs executed)
 	if [ -n "${ZSH_VERSION-}" ]; then
@@ -484,8 +484,8 @@ _zai_is_sourced() {
 	return 1
 }
 
-if _zai_is_sourced; then
-	zai_export
+if _braindance_is_sourced; then
+	braindance_export
 else
-	zai_main "$@"
+	braindance_main "$@"
 fi

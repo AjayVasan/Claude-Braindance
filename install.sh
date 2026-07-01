@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Zai — Installer
+# Braindance — Installer
 # One-shot setup: detects platform, installs files, configures shell
 #
 # Usage:
@@ -13,8 +13,8 @@ set -euo pipefail
 # ─── Configuration ────────────────────────────────────────────────────────────
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-ZAI_DIR="${ZAI_DIR:-$HOME/.local/share/zai}"
-ZAI_BIN_DIR="${HOME}/.local/bin"
+BRAINDANCE_DIR="${BRAINDANCE_DIR:-$HOME/.local/share/braindance}"
+BRAINDANCE_BIN_DIR="${HOME}/.local/bin"
 AUTO_CONFIRM=false
 
 if [ "${1:-}" = "--yes" ] || [ "${1:-}" = "-y" ]; then
@@ -65,7 +65,7 @@ confirm() {
 	esac
 }
 
-install_zai() {
+install_braindance() {
 	local os shell_type shell_config date_cmd
 
 	os=$(detect_os)
@@ -73,75 +73,75 @@ install_zai() {
 	shell_config=$(get_shell_config "$shell_type")
 
 	echo "╔══════════════════════════════════════╗"
-	echo "║        Zai — Installing               ║"
+	echo "║     Braindance — Installing           ║"
 	echo "╚══════════════════════════════════════╝"
 	echo ""
 	echo "Detected:"
 	echo "  OS:           ${os}"
 	echo "  Shell:        ${shell_type}"
 	echo "  Config:       ${shell_config:-"(detection failed)"}"
-	echo "  Install dir:  ${ZAI_DIR}"
+	echo "  Install dir:  ${BRAINDANCE_DIR}"
 	echo "  Source:       ${REPO_DIR}"
 	echo ""
 
 	# ── Step 1: Create directories ──
 	echo "[1/5] Creating directories..."
-	mkdir -p "$ZAI_DIR"/{presets,skills,src}
-	mkdir -p "$ZAI_BIN_DIR"
+	mkdir -p "$BRAINDANCE_DIR"/{presets,skills,src}
+	mkdir -p "$BRAINDANCE_BIN_DIR"
 
 	# ── Step 2: Copy source files ──
 	echo "[2/5] Installing source files..."
-	cp -r "$REPO_DIR/src/"* "$ZAI_DIR/src/"
-	cp -r "$REPO_DIR/presets/"* "$ZAI_DIR/presets/"
+	cp -r "$REPO_DIR/src/"* "$BRAINDANCE_DIR/src/"
+	cp -r "$REPO_DIR/presets/"* "$BRAINDANCE_DIR/presets/"
 
 	# ── Step 3: Create symlink ──
 	echo "[3/5] Creating symlink..."
-	ln -sf "$ZAI_DIR/src/main.sh" "$ZAI_BIN_DIR/zai"
-	echo "  → $ZAI_BIN_DIR/zai → $ZAI_DIR/src/main.sh"
+	ln -sf "$BRAINDANCE_DIR/src/main.sh" "$BRAINDANCE_BIN_DIR/braindance"
+	echo "  → $BRAINDANCE_BIN_DIR/braindance → $BRAINDANCE_DIR/src/main.sh"
 
 	# ── Step 4: Ensure PATH ──
-	if [[ ":$PATH:" != *":$ZAI_BIN_DIR:"* ]]; then
-		echo "[!] NOTE: $ZAI_BIN_DIR is not in your PATH."
+	if [[ ":$PATH:" != *":$BRAINDANCE_BIN_DIR:"* ]]; then
+		echo "[!] NOTE: $BRAINDANCE_BIN_DIR is not in your PATH."
 		echo "    Add this to your shell config:"
-		echo "    export PATH=\"\$PATH:$ZAI_BIN_DIR\""
+		echo "    export PATH=\"\$PATH:$BRAINDANCE_BIN_DIR\""
 		echo ""
 	fi
 
 	# ── Step 5: Shell integration (opt-in) ──
 	echo "[4/5] Shell integration..."
 	if [ -n "$shell_config" ] && [ -f "$shell_config" ]; then
-		if grep -q "Zai — auto-switch Claude Code presets" "$shell_config" 2>/dev/null; then
-			echo "  Zai already integrated in ${shell_config} — skipping."
+		if grep -q "Braindance — auto-switch Claude Code presets" "$shell_config" 2>/dev/null; then
+			echo "  Braindance already integrated in ${shell_config} — skipping."
 		else
-			if confirm "Add Zai shell integration to ${shell_config}?"; then
+			if confirm "Add Braindance shell integration to ${shell_config}?"; then
 				{
 					echo ""
-					echo "# Zai — auto-switch Claude Code presets by IST time"
-					echo "export ZAI_DIR=\"\${ZAI_DIR:-\$HOME/.local/share/zai}\""
-					echo "[[ -f \"\$ZAI_DIR/src/main.sh\" ]] && source \"\$ZAI_DIR/src/main.sh\""
-					echo "alias claude-doc='ZAI_PRESET_OVERRIDE=docs-utility claude'"
+					echo "# Braindance — auto-switch Claude Code presets by IST time"
+					echo "export BRAINDANCE_DIR=\"\${BRAINDANCE_DIR:-\$HOME/.local/share/braindance}\""
+					echo "[[ -f \"\$BRAINDANCE_DIR/src/main.sh\" ]] && source \"\$BRAINDANCE_DIR/src/main.sh\""
+					echo "alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility claude'"
 				} >> "$shell_config"
 				echo "  ✓ Added to ${shell_config}"
 				echo "  Run: exec \$SHELL  (or open new terminal)"
 			else
-				echo "  Skipped (you can manually add later with: zai shell)"
+				echo "  Skipped (you can manually add later with: braindance shell)"
 			fi
 		fi
 	else
-		echo "  Shell config not detected. Run 'zai shell' to see integration snippet."
+		echo "  Shell config not detected. Run 'braindance shell' to see integration snippet."
 	fi
 
 	# ── Step 6: API key prompt (optional) ──
 	echo "[5/5] API key..."
-	if [ ! -f "$ZAI_DIR/api-key" ]; then
+	if [ ! -f "$BRAINDANCE_DIR/api-key" ]; then
 		if confirm "Set Z.ai API key now?"; then
 			printf "  Enter your Z.ai API key: "
 			read -r api_key
 			if [ -n "$api_key" ]; then
-				"$ZAI_BIN_DIR/zai" set-key "$api_key"
+				"$BRAINDANCE_BIN_DIR/braindance" set-key "$api_key"
 			fi
 		else
-			echo "  You can set it later with: zai set-key <your-key>"
+			echo "  You can set it later with: braindance set-key <your-key>"
 		fi
 	else
 		echo "  API key already configured."
@@ -154,13 +154,13 @@ install_zai() {
 	echo ""
 	echo "Next steps:"
 	echo "  1. Open a new terminal (or: exec \$SHELL)"
-	echo "  2. Verify:  zai --check"
+	echo "  2. Verify:  braindance --check"
 	echo "  3. Use:     claude"
 	echo "  4. Docs:    claude-doc"
 	echo ""
-	echo "Need help?  zai --help"
+	echo "Need help?  braindance --help"
 }
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
-install_zai
+install_braindance

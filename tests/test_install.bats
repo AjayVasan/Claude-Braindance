@@ -2,9 +2,9 @@
 # Tests: Installer behavior (dry-run, shell detection, API key store)
 
 setup() {
-	export ZAI_DIR="${BATS_TEST_TMPDIR}/zai"
-	export ZAI_BIN_DIR="${BATS_TEST_TMPDIR}/bin"
-	mkdir -p "$ZAI_DIR" "$ZAI_BIN_DIR"
+	export BRAINDANCE_DIR="${BATS_TEST_TMPDIR}/braindance"
+	export BRAINDANCE_BIN_DIR="${BATS_TEST_TMPDIR}/bin"
+	mkdir -p "$BRAINDANCE_DIR" "$BRAINDANCE_BIN_DIR"
 }
 
 @test "detect_os returns linux or macos" {
@@ -31,30 +31,30 @@ setup() {
 
 @test "install.sh creates directory structure" {
 	# Simulate install by creating expected dirs
-	mkdir -p "$ZAI_DIR"/{presets,skills,src}
-	mkdir -p "$ZAI_BIN_DIR"
+	mkdir -p "$BRAINDANCE_DIR"/{presets,skills,src}
+	mkdir -p "$BRAINDANCE_BIN_DIR"
 
-	[ -d "$ZAI_DIR/presets" ]
-	[ -d "$ZAI_DIR/skills" ]
-	[ -d "$ZAI_DIR/src" ]
+	[ -d "$BRAINDANCE_DIR/presets" ]
+	[ -d "$BRAINDANCE_DIR/skills" ]
+	[ -d "$BRAINDANCE_DIR/src" ]
 }
 
 @test "symlink creation works" {
-	mkdir -p "$ZAI_BIN_DIR"
-	mkdir -p "$ZAI_DIR/src"
-	touch "$ZAI_DIR/src/main.sh"
+	mkdir -p "$BRAINDANCE_BIN_DIR"
+	mkdir -p "$BRAINDANCE_DIR/src"
+	touch "$BRAINDANCE_DIR/src/main.sh"
 
-	ln -sf "$ZAI_DIR/src/main.sh" "$ZAI_BIN_DIR/zai"
-	[ -L "$ZAI_BIN_DIR/zai" ]
-	[ "$(readlink "$ZAI_BIN_DIR/zai")" = "$ZAI_DIR/src/main.sh" ]
+	ln -sf "$BRAINDANCE_DIR/src/main.sh" "$BRAINDANCE_BIN_DIR/braindance"
+	[ -L "$BRAINDANCE_BIN_DIR/braindance" ]
+	[ "$(readlink "$BRAINDANCE_BIN_DIR/braindance")" = "$BRAINDANCE_DIR/src/main.sh" ]
 }
 
 @test "API key file permissions are 600 after store" {
-	mkdir -p "$ZAI_DIR"
-	echo -n "sk-test-key" > "$ZAI_DIR/api-key"
-	chmod 600 "$ZAI_DIR/api-key"
+	mkdir -p "$BRAINDANCE_DIR"
+	echo -n "sk-test-key" > "$BRAINDANCE_DIR/api-key"
+	chmod 600 "$BRAINDANCE_DIR/api-key"
 
 	local perms
-	perms=$(stat -c '%a' "$ZAI_DIR/api-key" 2>/dev/null || stat -f '%Lp' "$ZAI_DIR/api-key" 2>/dev/null)
+	perms=$(stat -c '%a' "$BRAINDANCE_DIR/api-key" 2>/dev/null || stat -f '%Lp' "$BRAINDANCE_DIR/api-key" 2>/dev/null)
 	[ "$perms" = "600" ]
 }

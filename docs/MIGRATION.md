@@ -4,13 +4,13 @@ Zai starts as a shell script (bash) because that's the right tool for setting en
 
 ## When to Migrate from Shell to Go
 
-Migrate from `src/main.sh` to a compiled Go binary when **any** of these conditions are met:
+Migrate from `braindance` to a compiled Go binary when **any** of these conditions are met:
 
 ### Trigger 1: Cross-Platform Date Incompatibility
 
 **Symptom:** You switch between macOS and Linux daily, or team members use different platforms. The BSD/GNU `date` flag differences become a recurring issue.
 
-**Shell limitation:** Shell has no portable way to handle the `date -r` (BSD) vs `date -d @timestamp` (GNU) incompatibility. The workaround in main.sh (`zai_detect_os`) is brittle.
+**Shell limitation:** Shell has no portable way to handle the `date -r` (BSD) vs `date -d @timestamp` (GNU) incompatibility. The workaround in main.sh (`braindance_detect_os`) is brittle.
 
 **Go fix:** `time.LoadLocation("Asia/Kolkata")` works identically on all platforms.
 
@@ -45,9 +45,9 @@ Migrate from `src/main.sh` to a compiled Go binary when **any** of these conditi
 Keep the shell script as the primary entry point. Build a Go binary alongside it:
 
 ```
-~/.local/share/zai/
-├── src/main.sh          # Shell — still the primary CLI
-├── zaid                 # Go binary — optional, for enhanced features
+~/.local/share/braindance/
+├── braindance          # Shell — still the primary CLI
+├── braindanced                 # Go binary — optional, for enhanced features
 └── ...
 ```
 
@@ -60,14 +60,14 @@ When the Go binary covers all CLI commands:
 ```bash
 # Old shell entry point (removed or becomes a thin wrapper)
 # New:
-~/.local/bin/zai → ~/.local/share/zai/zaid
+~/.local/bin/braindance → ~/.local/share/braindance/braindanced
 ```
 
 ### Build Target
 
 ```bash
-cd zai
-go build -o ~/.local/bin/zai ./cmd/zai
+cd braindance
+go build -o ~/.local/bin/braindance ./cmd/braindance
 ```
 
 Single binary, no interpreter dependency, true cross-compilation.

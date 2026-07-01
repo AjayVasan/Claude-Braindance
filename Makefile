@@ -12,7 +12,7 @@ check: ## Show Zai status
 	@bash src/main.sh --check
 
 skills-docs: ## Generate skills index documentation
-	@bash -c 'source src/skills.sh && zai_skills_docs'
+	@bash -c 'source src/skills.sh && braindance_skills_docs'
 
 test: ## Run all bats tests
 	@if command -v bats &>/dev/null; then \
@@ -41,4 +41,4 @@ lint: ## Shellcheck all scripts
 	fi
 
 all: test check skills-docs ## Run all checks
-	@echo "[zai] All checks passed ✓"
+	@echo "[braindance] All checks passed ✓"
