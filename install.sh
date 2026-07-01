@@ -149,14 +149,16 @@ _bd_type() {
 # ─── Box Drawing ──────────────────────────────────────────────────────────────
 
 # Draw a centered box with a title row. Sets _BD_CONTENT to first content row.
-# Renders directly to terminal (no command substitution — render then read _BD_CONTENT).
+# Renders directly to terminal.
+# Args: title, width=58, color=96, content_lines=8
 _bd_box() {
-	local title="$1" width="${2:-58}" color="${3:-96}"
-	local rows cols top content_row i left edge reset
+	local title="$1" width="${2:-58}" color="${3:-96}" content_lines="${4:-8}"
+	local rows cols top content_row i left edge reset total_h
 	rows=$(_bd_rows)
 	cols=$(_bd_cols)
-	top=$(( rows / 2 - 7 ))
-	[[ -z "$title" ]] && top=$(( rows / 2 - 3 ))
+	[[ -z "$title" ]] && total_h=$((content_lines + 3)) || total_h=$((content_lines + 4))
+	top=$(( (rows - total_h) / 2 ))
+	[[ $top -lt 0 ]] && top=0
 	left=$(( (cols - width) / 2 ))
 	[[ $left -lt 0 ]] && left=0
 	edge="\033[${color}m\033[1m"
@@ -167,7 +169,7 @@ _bd_box() {
 	for ((i=0; i<width-2; i++)); do printf '═'; done
 	printf '╗%b' "$reset"
 
-	# Title row if provided
+	# Title row if provided (counts as 1 content line)
 	content_row=$((top + 1))
 	if [[ -n "$title" ]]; then
 		printf '\033[%d;%dH%b║%b' "$content_row" "$left" "$edge" "$reset"
@@ -177,19 +179,19 @@ _bd_box() {
 		content_row=$((top + 2))
 	fi
 
-	# Empty rows between title and bottom
-	for ((r=content_row; r<content_row+8; r++)); do
+	# Empty rows
+	for ((r=content_row; r<content_row+content_lines; r++)); do
 		printf '\033[%d;%dH%b║%b\033[K' "$r" "$left" "$edge" "$reset"
 		printf '\033[%d;%dH%b║\033[0m\033[K' "$r" $((left + width - 1)) "$edge"
 	done
 
 	# Bottom border
-	local bottom=$((content_row + 8))
+	local bottom=$((content_row + content_lines))
 	printf '\033[%d;%dH%b╚' "$bottom" "$left" "$edge"
 	for ((i=0; i<width-2; i++)); do printf '═'; done
 	printf '╝%b\033[K' "$reset"
 
-	_BD_CONTENT=$((content_row + 1))
+	_BD_CONTENT=$((content_row))
 }
 
 # ─── Braindance Calibration ───────────────────────────────────────────────────
@@ -407,18 +409,30 @@ install_braindance() {
 
 	_bd_hide_cursor
 
-	# ── Draw the installation box ──
-	_bd_box "BRAINDANCE INSTALL" 58 96; content_start=$_BD_CONTENT
+	# ── Draw the installation box (no title — we use an ASCII art header) ──
+	_bd_box "" 58 96 19; content_start=$_BD_CONTENT
 
-	# Show detected system info (lines 0-2 inside box)
-	_bd_step_info $((content_start))     "SYSTEM"
-	_bd_step_info $((content_start + 1)) "  OS:      ${os}"
-	_bd_step_info $((content_start + 2)) "  Shell:   ${shell_type}"
-	_bd_step_info $((content_start + 3)) "  Config:  ${shell_config:-"(detection failed)"}"
-	_bd_step_info $((content_start + 4)) "  Target:  ${BRAINDANCE_DIR}"
+	# ── Cyberpunk ASCII art header ──
+	local bd_cols=$(_bd_cols)
+	local box_left=$(( (bd_cols - 58) / 2 ))
+	[[ $box_left -lt 0 ]] && box_left=0
+	local hdr_col=$((box_left + 4))
 
-	# Steps start at line 6
-	step_row=$((content_start + 6))
+	printf '\033[%d;%dH\033[93m         ░░▒▒▓▓▓ \033[96m⚡ BRAINDANCE ⚡\033[93m ▓▓▓▒▒░░\033[0m\033[K' \
+		$((content_start)) $hdr_col
+	printf '\033[%d;%dH\033[90m         ═══════ \033[2mneural calibration\033[90m ═══════\033[0m\033[K' \
+		$((content_start + 1)) $hdr_col
+	printf '\033[%d;%dH\033[2m\033[K' $((content_start + 2))
+
+	# Show detected system info
+	_bd_step_info $((content_start + 3)) "SYSTEM"
+	_bd_step_info $((content_start + 4)) "  OS:      ${os}"
+	_bd_step_info $((content_start + 5)) "  Shell:   ${shell_type}"
+	_bd_step_info $((content_start + 6)) "  Config:  ${shell_config:-"(detection failed)"}"
+	_bd_step_info $((content_start + 7)) "  Target:  ${BRAINDANCE_DIR}"
+
+	# Steps start after system info
+	step_row=$((content_start + 9))
 
 	# ── Step 1: Create directories ──
 	if $ANIMATE; then
@@ -470,7 +484,18 @@ install_braindance() {
 			_bd_step_info $((step_row + 5)) "  Already wired — skipping"
 		else
 			_bd_step_show "$((step_row + 4))" "4/6" "Wiring shell integration" done
-			if $AUTO_CONFIRM || confirm "  Add Braindance to ${shell_config}?"; then
+			if $AUTO_CONFIRM; then
+				should_add=true
+			else
+				printf '\033[%d;%dH\033[93m  Add to %s? [Y/n] \033[0m' \
+					$((step_row + 5)) $((box_left + 4)) "${shell_config}"
+				read -r response
+				case "$response" in
+					""|y|Y|yes|YES) should_add=true ;;
+					*) should_add=false ;;
+				esac
+			fi
+			if $should_add; then
 				{
 					echo ""
 					echo "# Braindance — auto-switch Claude Code presets by IST time"
