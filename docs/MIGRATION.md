@@ -1,6 +1,6 @@
-# Zai — Shell to Go Migration Guide
+# Braindance — Shell to Go Migration Guide
 
-Zai starts as a shell script (bash) because that's the right tool for setting environment variables and running a program — it's the shell's native purpose. However, as Zai grows, shell may not scale cleanly.
+Braindance starts as a shell script (bash) because that's the right tool for setting environment variables and running a program — it's the shell's native purpose. However, as Braindance grows, shell may not scale cleanly.
 
 ## When to Migrate from Shell to Go
 

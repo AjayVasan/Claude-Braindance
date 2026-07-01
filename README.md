@@ -16,7 +16,7 @@ Timezone
   Source:          Asia/Kolkata
   Current (IST):   14:22 IST
 
-Mindset
+Preset
   Active:          deep-thinking (peak hours)
 
   Model map:
@@ -72,18 +72,16 @@ No daemons. No background processes. No 200MB dependency installs. It's a shell 
 
 ---
 
-## Features
-
 | Feature | What it does |
 |---------|-------------|
 | **⏰ Time-based presets** | Auto-selects model preset based on IST time windows |
+| **🔔 Auto-notification** | Precmd hook alerts you when time window changes mid-session |
 | **🧠 4 mindsets** | Daily coding, deep thinking (peak), deep thinking (off-peak), docs |
 | **🔑 Secure key storage** | API key stored with `chmod 600`, verified before each session |
 | **🔌 Provider abstraction** | Currently supports Z.ai API — plug in any Anthropic-compatible provider |
 | **🐚 Shell integration** | Sources into zsh/bash/fish — one line, zero friction |
 | **📦 Skills installer** | Discover and install 5+ curated Claude Code skill packs |
 | **🏥 Diagnostic mode** | `braindance --check` shows full status at a glance |
-
 ---
 
 ## Quick Start
@@ -106,29 +104,51 @@ The installer walks you through:
 
 ---
 
-## Presets (Mindsets)
-
 | Mindset | Time Window (IST) | Opus | Sonnet | Haiku | When to use |
 |---------|-------------------|------|--------|-------|-------------|
 | `daily-coding` | 00:00-06:29 (default) | GLM-4.7 | GLM-4.7 | GLM-4.5-Air | General dev, quick tasks |
 | `deep-thinking-offpeak` | 06:30-11:29, 15:30-23:59 | GLM-5.2 | GLM-4.7 | GLM-4.5-Air | Architecture, planning, debugging |
 | `deep-thinking-peak` | 11:30-15:30 | GLM-5-Turbo | GLM-4.7 | GLM-4.5-Air | Deep work during peak hours |
-| `docs-utility` | Manual (`claude-doc`) | GLM-4.7 | GLM-4.5-Air | GLM-4.5-Air | Documentation, formatting, logs |
+| `docs-utility` | Manual (`claude-doc` alias) | GLM-4.7 | GLM-4.5-Air | GLM-4.5-Air | Documentation, formatting, logs |
 
 Override anytime: `braindance preset deep-thinking-offpeak`
 
 The ±60s grace window at 11:30 prevents boundary glitches.
 
----
+### Preset Switch Output
 
-## Commands
+```bash
+$ braindance preset deep-thinking-peak
+[braindance] Mindset switched: deep-thinking-offpeak → deep-thinking-peak
+
+  Opus:        GLM-5.2              → GLM-5-Turbo
+  Sonnet:      GLM-4.7              → GLM-4.7
+  Haiku:       GLM-4.5-Air          → GLM-4.5-Air
+
+[braindance] Use 'braindance preset reset' to revert to time-based.
+```
+
+Switching to the same preset prints current state without re-applying:
+
+```bash
+$ braindance preset deep-thinking-peak
+[braindance] Already on preset: deep-thinking-peak
+  Opus:   GLM-5-Turbo
+  Sonnet: GLM-4.7
+  Haiku:  GLM-4.5-Air
+```
+---
 
 | Command | Description |
 |---------|-------------|
 | `braindance --check` | Full diagnostic: time, mindset, models, API key status |
 | `braindance set-key <token>` | Store your API key securely |
-| `braindance preset <name>` | Override the active mindset |
+| `braindance preset <name>` | Override the active mindset (shows model diff) |
+| `braindance preset reset` / `auto` | Clear override, revert to time-based |
 | `braindance shell` | Print shell integration snippet |
+| `braindance hooks-install` | Install Claude Code SessionStart hook |
+| `braindance completions install` | Install zsh tab-completions |
+| `braindance upgrade` | Update .zshrc integration to latest version |
 | `braindance skills list` | List available Claude Code skill sources |
 | `braindance skills install <name>` | Clone and install a skill pack |
 | `braindance skills install --all` | Install all curated skill sources |
@@ -177,10 +197,23 @@ The installer adds this to your shell config (with permission):
 # .zshrc or .bashrc
 export BRAINDANCE_DIR="${BRAINDANCE_DIR:-$HOME/.local/share/braindance}"
 [[ -f "$BRAINDANCE_DIR/src/main.sh" ]] && source "$BRAINDANCE_DIR/src/main.sh"
-alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility claude'
+alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility command claude'
 ```
 
 To regenerate the snippet: `braindance shell`
+
+### Auto-Notification (Precmd Hook)
+
+Once sourced, Braindance registers a lightweight shell hook that watches for time-window crossings. When the clock passes a boundary (e.g., 11:30 → peak), the next prompt shows:
+
+```
+[braindance] ⏰ Time window changed: deep-thinking-offpeak → deep-thinking-peak
+  Opus:        GLM-5.2              → GLM-5-Turbo
+  Sonnet:      GLM-4.7              → GLM-4.7
+  Haiku:       GLM-4.5-Air          → GLM-4.5-Air
+```
+
+No background processes — just a `precmd`/`PROMPT_COMMAND` hook that runs in <1ms. Skips entirely when a manual override is active.
 
 ### Fish shell
 ```fish
@@ -188,7 +221,6 @@ set -gx BRAINDANCE_DIR $HOME/.local/share/braindance
 source $BRAINDANCE_DIR/src/main.sh
 alias claude-doc="env BRAINDANCE_PRESET_OVERRIDE=docs-utility claude"
 ```
-
 ---
 
 ## Skills Ecosystem
@@ -243,14 +275,11 @@ Install any of them: `braindance skills install obra/superpowers`
 ## Testing
 
 ```bash
-make test        # 23 tests — preset detection, CLI, key mgmt, skills
+make test        # 25 tests — preset detection, CLI, key mgmt, skills
 make check       # braindance --check — verify your setup
 make lint        # shellcheck all scripts
 ```
-
 ---
-
-## Project Architecture
 
 ```
 Claude-Braindance/
@@ -258,7 +287,7 @@ Claude-Braindance/
 ├── install.sh                 # One-shot installer
 │
 ├── src/
-│   ├── main.sh                # Core engine (CLI, time detection, preset switching, key mgmt)
+│   ├── main.sh                # Core engine (~700 lines)
 │   └── skills.sh              # Skills management (registry, install, docs)
 │
 ├── presets/
@@ -277,7 +306,7 @@ Claude-Braindance/
 └── Makefile
 ```
 
-The entire project is ~1700 lines of bash. Designed to be readable, auditable, and forkable.
+The entire project is ~1900 lines of bash. Designed to be readable, auditable, and forkable.
 
 ---
 

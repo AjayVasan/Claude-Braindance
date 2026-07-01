@@ -36,9 +36,8 @@ Claude-Braindance/
 ├── README.md
 │
 ├── src/
-│   ├── main.sh              # ~490 lines — core engine
+│   ├── main.sh              # ~700 lines — core engine
 │   └── skills.sh            # ~300 lines — skills management
-│
 ├── presets/
 │   ├── daily-coding.env
 │   ├── deep-thinking-offpeak.env
@@ -62,13 +61,13 @@ Claude-Braindance/
 
 | Component | File | Responsibility |
 |-----------|------|----------------|
-| **CLI Dispatcher** | `src/main.sh` | Routes commands: `--check`, `set-key`, `preset`, `shell`, `skills` |
+| **CLI Dispatcher** | `src/main.sh` | Routes commands: `--check`, `set-key`, `preset`, `auto`, `shell`, `skills`, `hooks-install`, `completions`, `upgrade` |
 | **Time Engine** | `src/main.sh` | IST time detection with ±60s grace window at 11:30 boundary |
 | **Preset Router** | `src/main.sh` | Maps time → preset: 00:00-06:29 daily, 06:30-11:29 offpeak, 11:30-15:30 peak, 15:30-23:59 offpeak |
+| **Precmd Hook** | `src/main.sh` | Watches for time-window crossings, prints notification with model diff at next prompt |
 | **Key Manager** | `src/main.sh` | Store/read/verify API key with `chmod 600` |
 | **Shell Hook** | `src/main.sh` | Emits bash/zsh/fish integration snippet |
 | **Skills Registry** | `src/skills.sh` | 5 curated skill sources with install/remove/docs |
-| **Installer** | `install.sh` | OS+shell detection, file copy, symlink, rc injection |
 
 ### 3.3 Dual-Mode Entry Point
 
@@ -116,7 +115,6 @@ else:
 ### 4.3 Provided Abstraction
 
 Currently supports **Z.ai** (Anthropic-compatible API). The tool exports these env vars:
-
 ```
 ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic
 ANTHROPIC_AUTH_TOKEN=<token>
@@ -153,7 +151,6 @@ Adding a new provider = create a new preset `.env` file with the provider's base
 ---
 
 ## 6. Edge Cases Handled
-
 | ID | Issue | Fix | Lines |
 |----|-------|-----|-------|
 | E1 | Missing/empty API key | `[ -z "$BRAINDANCE_API_KEY" ] && echo error && return 1` | 3 |
@@ -162,7 +159,8 @@ Adding a new provider = create a new preset `.env` file with the provider's base
 | E4 | Shell-agnostic install | `case $SHELL in zsh|bash|fish)` in install.sh | 5 |
 | E5 | BSD vs GNU date | OS detection + correct date flags | 10 |
 | E6 | 11:30 boundary clock skew | ±60s grace window + deterministic function | 5 |
-
+| E7 | Stale override env var after preset auto | `--check` uses file as authority, drops env var fallback | 6 |
+| E8 | Prompt notification on time crossing | `precmd`/`PROMPT_COMMAND` hook, skips when override active | 25 |
 ---
 
 ## 7. Dependencies
@@ -212,8 +210,12 @@ The installer does NOT modify `.zshrc` without asking. Explicit confirmation req
 |---------|-------------|
 | `braindance --check` | Full diagnostic: time, preset, model map, API key, env vars |
 | `braindance set-key <key>` | Store Z.ai API key (chmod 600) |
-| `braindance preset <name>` | Override active preset temporarily |
+| `braindance preset <name>` | Override active preset (shows mindset + model diff) |
+| `braindance preset reset` / `auto` | Clear override, revert to time-based |
 | `braindance shell` | Print shell integration snippet |
+| `braindance hooks-install` | Install Claude Code SessionStart hook |
+| `braindance completions install` | Install zsh tab-completions |
+| `braindance upgrade` | Update .zshrc to latest integration |
 | `braindance skills list` | Show available skill sources |
 | `braindance skills install <name>` | Clone and install a skill from GitHub |
 | `braindance skills install --all` | Install all curated skills |
@@ -246,15 +248,10 @@ bash install.sh
 
 ```bash
 make test        # Runs all 23 bats tests
-make check       # Shows braindance --check status
-make lint        # Runs shellcheck on all scripts
-```
-
 Test categories:
 - **test_presets.bats** — Time detection, preset resolution, CLI dispatch, API key management, shell integration
 - **test_install.bats** — OS/shell detection, directory structure, symlink, file permissions
 - **test_skills.bats** — Registry, install/remove, docs generation
-
 ---
 
 ## 12. Future Phases (v2+)
@@ -276,9 +273,12 @@ Test categories:
 bad1c00 feat: add skills management system
 171f5c6 feat: add installer and shell integration
 1dd8f98 feat: add preset definitions and core switching engine
+cab110a fix: stale BRAINDANCE_PRESET_OVERRIDE env var survives after file deleted
+b6dd1f0 fix: --check now shows overridden preset, not time-based
+79a55e3 fix: --check no longer shows stale override after preset reset
+d754402 fix: remove duplicate 'reset' from preset completions
+51b4e44 feat: preset switch shows mindset + model diff on change
 ```
-
----
 
 ## 14. Credits
 

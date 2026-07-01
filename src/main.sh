@@ -242,6 +242,9 @@ braindance_export() {
 
 	export BRAINDANCE_ACTIVE_PRESET="${BRAINDANCE_APPLIED_PRESET:-}"
 
+	# Register precmd hook for time-based transition notifications
+	braindance_register_precmd
+
 	# Export is complete — env vars are now set for Claude Code
 	return 0
 }
@@ -696,6 +699,58 @@ braindance_main() {
 			return 1
 			;;
 	esac
+}
+
+# ─── Precmd Hook (Time-Transition Notifications) ──────────────────────────────
+
+# braindance_register_precmd: Registers the prompt hook for time-based preset changes
+# Called once when the script is sourced into the interactive shell
+braindance_register_precmd() {
+	# Initialize tracker so first prompt doesn't fire
+	_BD_LAST_PRESET=$(braindance_detect_preset)
+
+	if [ -n "${ZSH_VERSION-}" ]; then
+		# zsh: use precmd hook
+		if ! [[ "${precmd_functions[*]}" =~ "braindance_precmd_check" ]]; then
+			precmd_functions+=(braindance_precmd_check)
+		fi
+	elif [ -n "${BASH_VERSION-}" ]; then
+		# bash: use PROMPT_COMMAND
+		if [[ "${PROMPT_COMMAND:-}" != *"braindance_precmd_check"* ]]; then
+			PROMPT_COMMAND="braindance_precmd_check${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+		fi
+	fi
+}
+
+# braindance_precmd_check: Runs before each prompt — detects time-window crossings
+# Skips when an override file is present (manual mode)
+# Prints a one-line notification + model diff only on actual transitions
+braindance_precmd_check() {
+	# Skip entirely if override is active — user is in manual mode
+	if [ -f "$BRAINDANCE_DIR/override" ]; then
+		# Still track the time-based preset underneath for when override clears
+		_BD_LAST_PRESET=$(braindance_detect_preset)
+		return 0
+	fi
+
+	local current_preset
+	current_preset=$(braindance_detect_preset)
+
+	if [ -n "$_BD_LAST_PRESET" ] && [ "$current_preset" != "$_BD_LAST_PRESET" ]; then
+		# Time window crossed — read models for old and new presets
+		braindance_read_preset_model "$_BD_LAST_PRESET"
+		local _bd_o_opus="$_BD_OPUS" _bd_o_sonnet="$_BD_SONNET" _bd_o_haiku="$_BD_HAIKU"
+		braindance_read_preset_model "$current_preset"
+
+		echo ""
+		echo "[braindance] ⏰ Time window changed: $_BD_LAST_PRESET → $current_preset"
+		printf "  %-12s %-20s → %s\n" "Opus:"   "$_bd_o_opus"   "$_BD_OPUS"
+		printf "  %-12s %-20s → %s\n" "Sonnet:" "$_bd_o_sonnet" "$_BD_SONNET"
+		printf "  %-12s %-20s → %s\n" "Haiku:"  "$_bd_o_haiku"  "$_BD_HAIKU"
+		echo ""
+	fi
+
+	_BD_LAST_PRESET="$current_preset"
 }
 
 # ─── Entry Point ──────────────────────────────────────────────────────────────
