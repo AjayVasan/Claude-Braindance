@@ -401,15 +401,15 @@ _bd_interactive_help() {
 	rows=$(_bd_rows)
 	cols=$(_bd_cols)
 
-	# Menu items: "label:description"
+	# Menu items: "label:description" where description lines separated by ;
 	local items=(
-		"braindance --check:Full diagnostics: time, preset, model map, API key status, env vars"
-		"braindance preset <name>:Override preset: daily-coding | deep-thinking-offpeak | deep-thinking-peak | docs-utility. Shows model diff."
-		"braindance preset reset:Clear override, revert to automatic time-based preset"
-		"claude:Start Claude Code with current time-based preset models"
-		"claude-doc:Always uses docs-utility preset — docs, formatting, logs"
-		"braindance skills list:Discover & install Claude Code skill packs from GitHub"
-		"braindance set-key <key>:Store your Z.ai API key securely (chmod 600)"
+		"braindance --check:• See your current time, preset, and model mapping;• Shows API key status and environment;• Verifies everything is connected"
+		"braindance preset <name>:• Override automatic time-based preset;• Options: daily-coding | deep-thinking-offpeak;•         deep-thinking-peak | docs-utility"
+		"braindance preset reset:• Clear any manual override;• Revert to automatic IST schedule"
+		"claude:• Launch Claude Code with current preset;• Models auto-switch by IST time window"
+		"claude-doc:• Always uses docs-utility preset;• Lower cost model for docs, formatting, logs"
+		"braindance skills list:• Browse and install skill packs;• Enhance Claude Code with custom abilities"
+		"braindance set-key <key>:• Store your Z.ai API key securely;• Saved to \$BRAINDANCE_DIR/api-key (chmod 600)"
 	)
 	local count=${#items[@]}
 	local selected=0
@@ -423,13 +423,13 @@ _bd_interactive_help() {
 		descs+=("${item#*:}")
 	done
 
-	local box_w=60 box_h=14 box_color=93
+	local box_w=62 box_h=17 box_color=93
 	local box_top=$(( (rows - box_h) / 2 ))
 	local left=$(( (cols - box_w) / 2 ))
 	[[ $left -lt 0 ]] && left=0
 	local indent=$((left + 3))
 	local sep_row=$((box_top + 8))
-	local footer_row=$((box_top + box_h - 1))
+	local footer_row=$((box_top + box_h - 2))
 
 	local edge="\033[${box_color}m\033[1m"
 	local reset="\033[0m"
@@ -448,13 +448,11 @@ _bd_interactive_help() {
 		printf '╝%b\033[K' "$reset"
 	}
 
-	# Header line
 	_draw_header() {
 		printf '\033[%d;%dH\033[96m\033[1m⚡ BRAINDANCE \033[90m— calibration complete\033[0m\033[K' \
 			$((box_top+1)) $((left+2))
 	}
 
-	# Render one menu item (highlighted or normal)
 	_draw_item() {
 		local idx=$1 row=$2 active=$3
 		if (( active )); then
@@ -464,49 +462,56 @@ _bd_interactive_help() {
 		fi
 	}
 
-	# Clear the description area
 	_clear_desc() {
 		local r
-		for ((r=sep_row+1; r<footer_row-1; r++)); do
+		for ((r=sep_row+1; r<footer_row; r++)); do
 			printf '\033[%d;%dH\033[K' "$r" "$left"
 		done
 	}
 
-	# Type out the description character by character
 	_animate_desc() {
 		local idx=$1
 		local desc="${descs[$idx]}"
 		local drow=$((sep_row + 2))
-		dcol=$((left + 3))
-		local i
-		for ((i=0; i<${#desc}; i++)); do
-			printf '\033[%d;%dH\033[96m%s\033[0m' "$drow" $((dcol+i)) "${desc:$i:1}"
-			sleep 0.005
+		local dcol=$((left + 3))
+		local line
+		IFS=';' read -ra lines <<< "$desc"
+		local li
+		for ((li=0; li<${#lines[@]}; li++)); do
+			line="${lines[$li]}"
+			# Trim leading whitespace
+			line="${line#"${line%%[! ]*}"}"
+			local row=$((drow + li))
+			local i
+			for ((i=0; i<${#line}; i++)); do
+				printf '\033[%d;%dH\033[96m%s\033[0m' "$row" $((dcol+i)) "${line:$i:1}"
+				sleep 0.003
+			done
+			sleep 0.08
 		done
 	}
 
-	# Footer
 	_draw_footer() {
 		printf '\033[%d;%dH\033[90m\033[2m↑↓ navigate  ·  q/ESC exit\033[0m\033[K' \
 			$footer_row $((left + 2))
 	}
 
-	# Read a keypress (handles arrow keys). Returns empty string on EOF/timeout.
 	_read_key() {
 		local key
 		IFS= read -r -s -n 1 key 2>/dev/null || { echo "QUIT"; return; }
 		if [[ $key == $'\x1b' ]]; then
-			read -r -s -n 2 key 2>/dev/null
+			# Read rest of escape sequence with short timeout
+			read -r -s -t 0.1 -n 2 key 2>/dev/null
 			case "$key" in
 				'[A') echo "UP"    ;;
 				'[B') echo "DOWN"  ;;
 				'[C') echo "RIGHT" ;;
 				'[D') echo "LEFT"  ;;
-				*)    echo "OTHER" ;;
+				*)    echo "QUIT"  ;;  # bare Esc or unknown sequence
 			esac
 		elif [[ -z "$key" ]] || [[ $key == $'\x0a' ]]; then
 			echo "ENTER"
-		elif [[ $key == "q" ]] || [[ $key == "Q" ]] || [[ $key == $'\x1b' ]]; then
+		elif [[ $key == "q" ]] || [[ $key == "Q" ]]; then
 			echo "QUIT"
 		fi
 	}
@@ -521,19 +526,23 @@ _bd_interactive_help() {
 		sleep 0.25
 	fi
 	_bd_clear
+
+	# Drain any leftover stdin (API key paste may leave bytes)
+	_drain_input() { local d; while read -t 0.01 -s -n 1 d 2>/dev/null; do :; done; }
+	_drain_input
+
 	_draw_frame
 	_draw_header
 	_draw_footer
 
 	# Separator line
 	printf '\033[%d;%dH\033[90m%s\033[0m\033[K' $sep_row $((left+2)) \
-		"────────────────────────────────────────"
-	printf '\033[%d;%dH\033[90m\033[2musage\033[0m\033[K' $((sep_row)) $((left+27))
+		"──────────────────────────────────────────────"
+	printf '\033[%d;%dH\033[90m\033[2musage\033[0m\033[K' $((sep_row)) $((left+29))
 
 	# Initial render
 	local r old_selected=-1
 	while true; do
-		# Re-draw items only if selection changed
 		if (( selected != old_selected )); then
 			for ((r=0; r<count && r<6; r++)); do
 				_draw_item $r $((box_top+2+r)) $(( r == selected ? 1 : 0 ))
