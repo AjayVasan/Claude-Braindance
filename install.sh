@@ -478,13 +478,16 @@ _bd_interactive_help() {
 		local key seq
 		IFS= read -r -s -n 1 key 2>/dev/null || { echo "QUIT"; return; }
 		if [[ $key == $'\x1b' ]]; then
-			# Read escape sequence — longer timeout in case terminal sends bytes slowly
+			# Read escape sequence — generous timeout for slow terminals
+			# Also handles double-escape prefix (\x1b\x1b[B) some terminals send
 			seq=""
 			local i
-			for ((i=0; i<5; i++)); do
-				read -r -s -t 0.1 -n 1 key 2>/dev/null || break
+			for ((i=0; i<6; i++)); do
+				read -r -s -t 0.3 -n 1 key 2>/dev/null || break
 				seq="$seq$key"
 			done
+			# Strip leading \x1b sequences (double-escape support)
+			while [[ $seq == $'\x1b'* ]]; do seq="${seq#$'\x1b'}"; done
 			case "$seq" in
 				'[A'|'OA')   echo "UP"    ;;
 				'[B'|'OB')   echo "DOWN"  ;;
@@ -512,12 +515,14 @@ _bd_interactive_help() {
 	fi
 	_bd_clear
 
+	# Let terminal settle after API key input before aggressive drain
+	sleep 0.2
 	# Aggressively drain leftover stdin (API key paste may leave stray bytes)
 	_drain_input() {
 		local d
+		while read -r -t 0.2 -s -n 1 d 2>/dev/null; do :; done
+		while read -r -t 0.2 -s -n 1 d 2>/dev/null; do :; done
 		while read -r -t 0.1 -s -n 1 d 2>/dev/null; do :; done
-		while read -r -t 0.1 -s -n 1 d 2>/dev/null; do :; done
-		while read -r -t 0.05 -s -n 1 d 2>/dev/null; do :; done
 	}
 	_drain_input
 

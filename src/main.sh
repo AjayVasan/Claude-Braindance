@@ -808,7 +808,13 @@ _braindance_is_sourced() {
 		case "${ZSH_EVAL_CONTEXT:-}" in
 			*:file*|file)   return 0 ;;  # sourcing from a file or nested context
 			*cmdarg*)       return 0 ;;  # sourced via zsh -c
-			toplevel)       return 1 ;;  # executing at top level — NOT sourced
+			toplevel)
+				# At top level — check what $0 is to distinguish sourcing vs execution
+				case "${0##*/}" in
+					main.sh|braindance) return 1 ;;  # executing a script directly
+					*)                  return 0 ;;  # sourcing from .zshrc or prompt
+				esac
+				;;
 			*)              return 1 ;;  # unknown → assume execution
 		esac
 	elif [ -n "${BASH_SOURCE-}" ]; then
