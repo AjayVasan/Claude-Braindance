@@ -519,16 +519,22 @@ _bd_interactive_help() {
 	# ── Render ──
 	_bd_clear
 	if $ANIMATE; then
-		_bd_flash '\033[46m' 0.08
-		local glitch_row=$((rows/2-1))
-		local glitch_col=$(( (_bd_center_col "BRAINDANCE COMPLETE") + 1 ))
-		_bd_glitch_reveal "BRAINDANCE COMPLETE" "$glitch_row" "$glitch_col" 0.02
-		sleep 0.25
+		# Clean reveal — no full-screen flash, just type out completion text
+		local complete_row=$((rows/2-1))
+		local complete_col=$(_bd_center_col "BRAINDANCE - CALIBRATION COMPLETE")
+		_bd_type "BRAINDANCE - CALIBRATION COMPLETE" "$complete_row" "$complete_col" 0.008
+		sleep 0.4
 	fi
 	_bd_clear
 
-	# Drain any leftover stdin (API key paste may leave bytes)
-	_drain_input() { local d; while read -t 0.01 -s -n 1 d 2>/dev/null; do :; done; }
+	# Aggressively drain leftover stdin (API key paste may leave stray bytes)
+	_drain_input() {
+		local d
+		# Drain with longer timeout — catches leftover from paste + accidental keypresses
+		while read -t 0.05 -s -n 1 d 2>/dev/null; do :; done
+		# Second pass in case more buffered data arrived
+		while read -t 0.05 -s -n 1 d 2>/dev/null; do :; done
+	}
 	_drain_input
 
 	_draw_frame
@@ -560,8 +566,8 @@ _bd_interactive_help() {
 	done
 }
 install_braindance() {
-	local os shell_type shell_config date_cmd
-	local content_start step_row
+	local os shell_type shell_config
+	local content_start step_row should_add
 
 	os=$(detect_os)
 	shell_type=$(detect_shell)
@@ -628,12 +634,12 @@ install_braindance() {
 	_bd_step_show "$((step_row + 2))" "3/6" "Syncing neural pathways" done
 	sleep 0.1
 
-	# ── Step 4: PATH check ──
+	# ── PATH check (info only) ──
 	if [[ ":$PATH:" != *":$BRAINDANCE_BIN_DIR:"* ]]; then
 		_bd_step_info $((step_row + 3)) "! PATH not set — add to shell config"
 	fi
 
-	# ── Step 5: Shell integration ──
+	# ── Step 4: Shell integration ──
 	if $ANIMATE; then
 		_bd_step_type "$((step_row + 4))" "4/6" "Wiring shell integration"
 	else
@@ -680,7 +686,7 @@ install_braindance() {
 	fi
 	sleep 0.1
 
-	# ── Step 6: API key ──
+	# ── Step 5: API key ──
 	if $ANIMATE; then
 		_bd_step_type "$((step_row + 7))" "5/6" "Registering biometric key"
 	else
@@ -694,17 +700,17 @@ install_braindance() {
 		if $AUTO_CONFIRM; then
 			_bd_step_info $((step_row + 8)) "  Skipped — set later: braindance set-key"
 		else
-			printf '\033[%d;%dH\033[93m  Set API key now? [Y/n] \033[0m' \
+			printf '\033[%d;%dH\033[93m  Set Z.ai API key now? [Y/n] \033[0m' \
 				$((step_row + 8)) $((box_indent))
 			read -r yn
 			case "$yn" in
 				""|y|Y|yes|YES)
-					printf '\033[%d;%dH\033[96m  Enter key: \033[0m' \
-						$((step_row + 8)) $((box_indent))
+				printf '\033[%d;%dH\033[96m  Enter Z.ai API key (sk-...): \033[0m' \
+					$((step_row + 8)) $((box_indent))
 					read -r api_key
 					printf '\033[%d;%dH\033[K' $((step_row + 8))
 					if [ -n "$api_key" ]; then
-						bash "$BRAINDANCE_DIR/src/main.sh" set-key "$api_key"
+						bash "$BRAINDANCE_DIR/src/main.sh" set-key "$api_key" &>/dev/null
 						_bd_step_info $((step_row + 8)) "  ✓ Biometric key stored"
 					else
 						_bd_step_info $((step_row + 8)) "  No key — set later: braindance set-key"
@@ -718,17 +724,17 @@ install_braindance() {
 	fi
 	sleep 0.1
 
-	# ── Step 7: Hooks ──
+	# ── Step 6: Hooks ──
 	if $ANIMATE; then
 		_bd_step_type "$((step_row + 10))" "6/6" "Deploying session hooks"
 	else
 		_bd_step_show "$((step_row + 10))" "6/6" "Deploying session hooks" running
 	fi
 	if command -v claude &>/dev/null; then
-		bash "$BRAINDANCE_DIR/src/main.sh" hooks-install 2>/dev/null || true
+		bash "$BRAINDANCE_DIR/src/main.sh" hooks-install &>/dev/null || true
 	fi
 	if [ "$shell_type" = "zsh" ]; then
-		bash "$BRAINDANCE_DIR/src/main.sh" completions install 2>/dev/null || true
+		bash "$BRAINDANCE_DIR/src/main.sh" completions install &>/dev/null || true
 	fi
 	_bd_step_show "$((step_row + 10))" "6/6" "Deploying session hooks" done
 	sleep 0.3

@@ -41,23 +41,23 @@ _braindance_complete() {
 				)
 				_describe -t presets 'preset' presets
 				;;
-				skills)
-					local -a skills_cmds
-					skills_cmds=(
-						'list:Show available skill sources'
-						'install:Clone and install a skill'
-						'remove:Remove an installed skill'
-						'docs:Generate skills documentation'
-					)
-					_describe -t skills 'skill command' skills_cmds
-					;;
-				completions)
-					local -a comp_cmds
-					comp_cmds=(
-						'install:Install zsh completions'
-					)
-					_describe -t completions 'completion command' comp_cmds
-					;;
+			skills)
+				local -a skills_cmds
+				skills_cmds=(
+					'list:Show available skill sources'
+					'install:Clone and install a skill'
+					'remove:Remove an installed skill'
+					'docs:Generate skills documentation'
+				)
+				_describe -t skills 'skill command' skills_cmds
+				;;
+			completions)
+				local -a comp_cmds
+				comp_cmds=(
+					'install:Install zsh completions'
+				)
+				_describe -t completions 'completion command' comp_cmds
+				;;
 			esac
 			;;
 	esac

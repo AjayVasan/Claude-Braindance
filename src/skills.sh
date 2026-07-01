@@ -9,7 +9,7 @@
 #   braindance skills docs             Generate skills/index.md
 
 # No top-level set -euo pipefail — sourcing should not change shell options
-# Individual functions use set -e locally where needed
+# Functions avoid set -e since they run within the sourced environment
 
 # ─── Script Directory (cross-shell) ───────────────────────────────────────────
 

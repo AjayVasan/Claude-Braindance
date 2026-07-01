@@ -41,9 +41,9 @@ fi
 # ─── Configuration ────────────────────────────────────────────────────────────
 
 BRAINDANCE_DIR="${BRAINDANCE_DIR:-$HOME/.local/share/braindance}"
-BRAINDANCE_PRESETS_DIR="${BRAINDANCE_DIR}/presets"
-BRAINDANCE_SKILLS_DIR="${BRAINDANCE_DIR}/skills"
-BRAINDANCE_API_KEY_FILE="${BRAINDANCE_DIR}/api-key"
+BRAINDANCE_PRESETS_DIR="${BRAINDANCE_PRESETS_DIR:-$BRAINDANCE_DIR/presets}"
+BRAINDANCE_SKILLS_DIR="${BRAINDANCE_SKILLS_DIR:-$BRAINDANCE_DIR/skills}"
+BRAINDANCE_API_KEY_FILE="${BRAINDANCE_API_KEY_FILE:-$BRAINDANCE_DIR/api-key}"
 BRAINDANCE_TZ="${BRAINDANCE_TZ:-Asia/Kolkata}"
 BRAINDANCE_PRESET_OVERRIDE="${BRAINDANCE_PRESET_OVERRIDE:-}"
 BRAINDANCE_DEFAULT_PRESET="daily-coding"
@@ -168,7 +168,7 @@ braindance_apply_preset() {
 				eval "export $k=\"$v\""
 				;;
 			ANTHROPIC_AUTH_TOKEN)
-				eval "export $k=${v:-}"
+				eval "export $k=\"${v:-}\""
 				;;
 			ANTHROPIC_DEFAULT_OPUS_MODEL|ANTHROPIC_DEFAULT_SONNET_MODEL|ANTHROPIC_DEFAULT_HAIKU_MODEL)
 				export "$k=$v"
@@ -400,6 +400,7 @@ braindance_cmd_preset() {
 		echo "[braindance]        braindance preset reset   (clear override)" >&2
 		echo "[braindance] Available presets:" >&2
 		for p in "$BRAINDANCE_PRESETS_DIR"/*.env; do
+			[ -f "$p" ] || continue
 			local pname
 			pname=$(basename "$p" .env)
 			echo "  - $pname"
@@ -471,7 +472,7 @@ braindance_cmd_shell() {
 		fish)
 			cat <<-FISH
 				# Braindance — auto-switch Claude Code presets by IST time
-				set -gx BRAINDANCE_DIR \$BRAINDANCE_DIR $HOME/.local/share/braindance
+				set -q BRAINDANCE_DIR; or set -gx BRAINDANCE_DIR "$HOME/.local/share/braindance"
 				source \$BRAINDANCE_DIR/src/main.sh
 				alias claude-doc="env BRAINDANCE_PRESET_OVERRIDE=docs-utility claude"
 			FISH
@@ -654,8 +655,10 @@ braindance_cmd_skills() {
 braindance_main() {
 	set -euo pipefail
 	if [ $# -eq 0 ]; then
-		braindance_export
-		return $?
+		# Running as a command (not sourced) — export would be lost in subprocess.
+		# Environment is already set from .zshrc sourcing at shell startup.
+		echo "[braindance] Sourced environment active. Run 'braindance --check' for status." >&2
+		return 0
 	fi
 
 	case "${1:-}" in
@@ -802,8 +805,7 @@ _braindance_is_sourced() {
 			*toplevel*)     return 0 ;;  # sourced from interactive prompt
 			*cmdarg*)       return 0 ;;  # sourced via zsh -c
 		esac
-		# If we have no CLI args, assume sourced
-		[ $# -eq 0 ] && return 0
+		# Fall through: unexpected ZSH_EVAL_CONTEXT → assume executed
 		return 1
 	elif [ -n "${BASH_SOURCE-}" ]; then
 		[ "${BASH_SOURCE[0]}" != "${0}" ] && return 0
