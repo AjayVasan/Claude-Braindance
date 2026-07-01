@@ -400,6 +400,27 @@ braindance_cmd_shell() {
 	esac
 }
 
+# braindance_cmd_hooks_install: Install Claude Code SessionStart hook
+braindance_cmd_hooks_install() {
+	local hooks_dir="$HOME/.claude/hooks"
+	local hook_file="$hooks_dir/SessionStart"
+
+	mkdir -p "$hooks_dir"
+
+	cat > "$hook_file" <<- 'HOOK'
+		#!/usr/bin/env bash
+		# Braindance Claude Code hook — shows active preset at session start
+		BRAINDANCE_DIR="${BRAINDANCE_DIR:-$HOME/.local/share/braindance}"
+		if [ -f "$BRAINDANCE_DIR/src/main.sh" ]; then
+			source "$BRAINDANCE_DIR/src/main.sh" 2>/dev/null
+			printf 'braindance: %s | Opus: %s\n' "${BRAINDANCE_ACTIVE_PRESET:-unknown}" "${ANTHROPIC_DEFAULT_OPUS_MODEL:-not-set}"
+		fi
+	HOOK
+	chmod +x "$hook_file"
+	echo "[braindance] ✓ Claude Code hook installed: $hook_file"
+	echo "[braindance] It will show at the start of every Claude Code session."
+}
+
 # braindance_cmd_skills: Delegate to skills.sh
 braindance_cmd_skills() {
 	local skills_script="$BRAINDANCE_DIR/src/skills.sh"
@@ -445,6 +466,9 @@ braindance_main() {
 			shift
 			braindance_cmd_skills "$@"
 			;;
+		hooks-install)
+			braindance_cmd_hooks_install
+			;;
 		--help|-h)
 			echo "Braindance — Claude Code Preset Switcher & Skills Manager"
 			echo ""
@@ -454,6 +478,7 @@ braindance_main() {
 			echo "  braindance set-key <key>       Store Z.ai API key"
 			echo "  braindance preset <name>       Override preset"
 			echo "  braindance shell               Print shell integration"
+			echo "  braindance hooks-install       Install Claude Code SessionStart hook"
 			echo "  braindance skills list         List available skills"
 			echo "  braindance skills docs         Generate skills index"
 			echo "  braindance --help              This help"

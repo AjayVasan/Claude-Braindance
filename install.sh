@@ -159,6 +159,11 @@ install_braindance() {
 		fi
 	fi
 
+	# ── Step 7: Claude Code SessionStart hook ──
+	if command -v claude &>/dev/null; then
+		bash "$BRAINDANCE_DIR/src/main.sh" hooks-install 2>/dev/null || true
+	fi
+
 	echo ""
 	echo "╔══════════════════════════════════════╗"
 	echo "║        Install complete!              ║"
