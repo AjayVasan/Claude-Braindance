@@ -255,14 +255,14 @@ braindance_cmd_check() {
 
 	os=$(braindance_detect_os)
 	ist_time=$(braindance_get_time_ist)
-	# Resolve preset name considering override file
+	# Resolve preset name — override FILE is the authoritative source
+	# (BRAINDANCE_PRESET_OVERRIDE env var may be stale from parent shell export)
 	if [ -f "$BRAINDANCE_DIR/override" ]; then
 		preset_name=$(cat "$BRAINDANCE_DIR/override")
 		preset_display=" (overridden)"
-	elif [ -n "${BRAINDANCE_PRESET_OVERRIDE:-}" ]; then
-		preset_name="$BRAINDANCE_PRESET_OVERRIDE"
-		preset_display=" (overridden)"
 	else
+		# File gone — unset any stale env var inherited from parent shell
+		unset BRAINDANCE_PRESET_OVERRIDE
 		preset_name=$(braindance_detect_preset)
 	fi
 	key=$(braindance_get_key)
@@ -324,18 +324,27 @@ braindance_cmd_check() {
 	echo ""
 	echo "Env Vars (exported to Claude Code)"
 	local base_url opus sonnet haiku
-	base_url=$(echo "${ANTHROPIC_BASE_URL:-https://api.z.ai/api/anthropic}")
+	base_url="https://api.z.ai/api/anthropic"
+	opus="<not set>"
+	sonnet="<not set>"
+	haiku="<not set>"
 
 	local preset_file
 	preset_file=$(braindance_get_preset_path "$preset_name")
 	if [ -f "$preset_file" ]; then
-		opus=$(grep -m1 '^ANTHROPIC_DEFAULT_OPUS_MODEL=' "$preset_file" 2>/dev/null | cut -d= -f2)
-		sonnet=$(grep -m1 '^ANTHROPIC_DEFAULT_SONNET_MODEL=' "$preset_file" 2>/dev/null | cut -d= -f2)
-		haiku=$(grep -m1 '^ANTHROPIC_DEFAULT_HAIKU_MODEL=' "$preset_file" 2>/dev/null | cut -d= -f2)
+		while IFS='=' read -r key_eq val; do
+			case "$key_eq" in
+				ANTHROPIC_BASE_URL)
+					base_url="$val" ;;
+				ANTHROPIC_DEFAULT_OPUS_MODEL)
+					opus="$val" ;;
+				ANTHROPIC_DEFAULT_SONNET_MODEL)
+					sonnet="$val" ;;
+				ANTHROPIC_DEFAULT_HAIKU_MODEL)
+					haiku="$val" ;;
+			esac
+		done < "$preset_file"
 	fi
-	opus="${opus:-<not set>}"
-	sonnet="${sonnet:-<not set>}"
-	haiku="${haiku:-<not set>}"
 	printf "  %-35s %s\n" "ANTHROPIC_BASE_URL:" "${base_url}"
 	printf "  %-35s %s\n" "ANTHROPIC_DEFAULT_OPUS_MODEL:" "${opus:-<not set>}"
 	printf "  %-35s %s\n" "ANTHROPIC_DEFAULT_SONNET_MODEL:" "${sonnet:-<not set>}"
@@ -433,10 +442,12 @@ braindance_cmd_shell() {
 
 # braindance_cmd_auto: Clear override and revert to time-based detection
 braindance_cmd_auto() {
+	# Always remove the override file if present
 	if [ -f "$BRAINDANCE_DIR/override" ]; then
 		rm -f "$BRAINDANCE_DIR/override"
-		unset BRAINDANCE_PRESET_OVERRIDE
 	fi
+	# Unset the override (in this subprocess; parent shell's export handled by --check)
+	unset BRAINDANCE_PRESET_OVERRIDE
 	local preset
 	preset=$(braindance_detect_preset)
 	echo "[braindance] Override cleared. Reverted to time-based detection."
