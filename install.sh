@@ -134,25 +134,22 @@ install_braindance() {
 
 	# ── Step 6: API key prompt (optional) ──
 	echo "[5/5] API key..."
-	if [ ! -f "$BRAINDANCE_DIR/api-key" ]; then
+	if [ -f "$BRAINDANCE_DIR/api-key" ]; then
+		echo "  API key already set (file: $BRAINDANCE_DIR/api-key)."
+		echo "  Overwrite with: braindance set-key <your-key>"
+	else
 		if confirm "Set Z.ai API key now?"; then
 			printf "  Enter your Z.ai API key: "
 			read -r api_key
 			if [ -n "$api_key" ]; then
-				# Use direct source call instead of symlink (avoids permission issues)
-				if [ -f "$BRAINDANCE_DIR/src/main.sh" ]; then
-					bash "$BRAINDANCE_DIR/src/main.sh" set-key "$api_key"
-				else
-					"$BRAINDANCE_BIN_DIR/braindance" set-key "$api_key" 2>/dev/null || {
-						echo "  Could not run braindance. Set key later: braindance set-key <your-key>"
-					}
-				fi
+				bash "$BRAINDANCE_DIR/src/main.sh" set-key "$api_key"
+				echo "  ✓ API key saved to $BRAINDANCE_DIR/api-key"
+			else
+				echo "  No key entered. Set later: braindance set-key <your-key>"
 			fi
 		else
-			echo "  You can set it later with: braindance set-key <your-key>"
+			echo "  Skipped. Set later: braindance set-key <your-key>"
 		fi
-	else
-		echo "  API key already configured."
 	fi
 
 	echo ""
