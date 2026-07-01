@@ -497,23 +497,29 @@ _bd_interactive_help() {
 	}
 
 	_read_key() {
-		local key
+		local key seq
 		IFS= read -r -s -n 1 key 2>/dev/null || { echo "QUIT"; return; }
 		if [[ $key == $'\x1b' ]]; then
-			# Read rest of escape sequence with short timeout
-			read -r -s -t 0.1 -n 2 key 2>/dev/null
-			case "$key" in
+			# Read escape sequence one byte at a time with short timeout
+			seq=""
+			local i
+			for ((i=0; i<3; i++)); do
+				read -r -s -t 0.03 -n 1 key 2>/dev/null || break
+				seq="$seq$key"
+			done
+			case "$seq" in
 				'[A') echo "UP"    ;;
 				'[B') echo "DOWN"  ;;
 				'[C') echo "RIGHT" ;;
 				'[D') echo "LEFT"  ;;
-				*)    echo "QUIT"  ;;  # bare Esc or unknown sequence
+				'')   echo "ESC"   ;;  # bare Escape, no trailing bytes
 			esac
 		elif [[ -z "$key" ]] || [[ $key == $'\x0a' ]]; then
 			echo "ENTER"
 		elif [[ $key == "q" ]] || [[ $key == "Q" ]]; then
 			echo "QUIT"
 		fi
+		# Unrecognized keys silently ignored
 	}
 
 	# ── Render ──
@@ -561,7 +567,7 @@ _bd_interactive_help() {
 		case $(_read_key) in
 			UP)    ((selected > 0)) && ((selected--)) ;;
 			DOWN)  ((selected < count-1)) && ((selected++)) ;;
-			QUIT|ENTER) break ;;
+			QUIT|ESC|ENTER) break ;;
 		esac
 	done
 }
