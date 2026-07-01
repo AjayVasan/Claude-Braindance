@@ -93,6 +93,7 @@ install_braindance() {
 	echo "[2/5] Installing source files..."
 	cp -r "$REPO_DIR/src/"* "$BRAINDANCE_DIR/src/"
 	cp -r "$REPO_DIR/presets/"* "$BRAINDANCE_DIR/presets/"
+	chmod +x "$BRAINDANCE_DIR/src/main.sh"
 
 	# ── Step 3: Create symlink ──
 	echo "[3/5] Creating symlink..."
@@ -138,7 +139,14 @@ install_braindance() {
 			printf "  Enter your Z.ai API key: "
 			read -r api_key
 			if [ -n "$api_key" ]; then
-				"$BRAINDANCE_BIN_DIR/braindance" set-key "$api_key"
+				# Use direct source call instead of symlink (avoids permission issues)
+				if [ -f "$BRAINDANCE_DIR/src/main.sh" ]; then
+					bash "$BRAINDANCE_DIR/src/main.sh" set-key "$api_key"
+				else
+					"$BRAINDANCE_BIN_DIR/braindance" set-key "$api_key" 2>/dev/null || {
+						echo "  Could not run braindance. Set key later: braindance set-key <your-key>"
+					}
+				fi
 			fi
 		else
 			echo "  You can set it later with: braindance set-key <your-key>"
