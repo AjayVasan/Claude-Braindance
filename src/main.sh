@@ -222,20 +222,19 @@ braindance_store_key() {
 
 # ─── Environment Export ───────────────────────────────────────────────────────
 
-# braindance_export: Main export function — detects preset, applies it, exports vars
+# braindance_export: Main export function — loads API key, applies time-based preset, exports vars
 braindance_export() {
-	local key
-
-	# Apply preset (call directly, NOT via $() — subshell kills exports)
-	braindance_apply_preset
-
-	# Set BRAINDANCE_API_KEY from file if not already in env
+	# Load BRAINDANCE_API_KEY from file first so preset file eval can use it
 	if [ -z "${BRAINDANCE_API_KEY:-}" ] && [ -f "$BRAINDANCE_API_KEY_FILE" ]; then
 		export BRAINDANCE_API_KEY
 		BRAINDANCE_API_KEY=$(cat "$BRAINDANCE_API_KEY_FILE")
 	fi
 
-	# Export the key for substitution in preset env files
+	# Apply preset — eval in preset file expands ${BRAINDANCE_API_KEY:-} correctly
+	braindance_apply_preset
+
+	# Ensure ANTHROPIC_AUTH_TOKEN is always set from BRAINDANCE_API_KEY
+	# (covers preset files that don't include the token line themselves)
 	if [ -n "${BRAINDANCE_API_KEY:-}" ]; then
 		export ANTHROPIC_AUTH_TOKEN="$BRAINDANCE_API_KEY"
 	fi
@@ -245,7 +244,6 @@ braindance_export() {
 	# Register precmd hook for time-based transition notifications
 	braindance_register_precmd
 
-	# Export is complete — env vars are now set for Claude Code
 	return 0
 }
 
@@ -477,25 +475,33 @@ braindance_cmd_shell() {
 				alias claude-doc="env BRAINDANCE_PRESET_OVERRIDE=docs-utility claude"
 			FISH
 			;;
-		*)
-			cat <<-EOBASH
-				# Braindance — auto-switch Claude Code presets by IST time
-				export BRAINDANCE_DIR="\${BRAINDANCE_DIR:-\$HOME/.local/share/braindance}"
-				[[ -f "\$BRAINDANCE_DIR/src/main.sh" ]] && source "\$BRAINDANCE_DIR/src/main.sh"
+	*)
+		cat <<-'EOBASH'
+			# Braindance — auto-switch Claude Code presets by IST time
+			export BRAINDANCE_DIR="${BRAINDANCE_DIR:-$HOME/.local/share/braindance}"
+			[[ -f "$BRAINDANCE_DIR/src/main.sh" ]] && source "$BRAINDANCE_DIR/src/main.sh"
 
-				# Wrap claude to re-evaluate preset on every invocation
-				claude() {
-					[[ -f "\$BRAINDANCE_DIR/src/main.sh" ]] && source "\$BRAINDANCE_DIR/src/main.sh"
-					local bd_preset="\${BRAINDANCE_ACTIVE_PRESET:-unknown}"
-					local bd_opus="\${ANTHROPIC_DEFAULT_OPUS_MODEL:-?}"
-					local bd_sonnet="\${ANTHROPIC_DEFAULT_SONNET_MODEL:-?}"
-					local bd_haiku="\${ANTHROPIC_DEFAULT_HAIKU_MODEL:-?}"
-					printf "  [braindance] %s | opus: %s  sonnet: %s  haiku: %s\n" "\$bd_preset" "\$bd_opus" "\$bd_sonnet" "\$bd_haiku"
-					command claude "\$@"
-				}
-				alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility command claude'
-			EOBASH
-			;;
+			# Wrap claude to re-evaluate preset on every invocation
+			claude() {
+				[[ -f "$BRAINDANCE_DIR/src/main.sh" ]] && source "$BRAINDANCE_DIR/src/main.sh"
+
+				# Show pending time-transition notification if any
+				if [ -f "$BRAINDANCE_DIR/last_transition" ]; then
+					cat "$BRAINDANCE_DIR/last_transition"
+					rm -f "$BRAINDANCE_DIR/last_transition"
+					echo ""
+				fi
+
+				local bd_preset="${BRAINDANCE_ACTIVE_PRESET:-unknown}"
+				local bd_opus="${ANTHROPIC_DEFAULT_OPUS_MODEL:-?}"
+				local bd_sonnet="${ANTHROPIC_DEFAULT_SONNET_MODEL:-?}"
+				local bd_haiku="${ANTHROPIC_DEFAULT_HAIKU_MODEL:-?}"
+				printf "  [braindance] %s | opus: %s  sonnet: %s  haiku: %s\n" "$bd_preset" "$bd_opus" "$bd_sonnet" "$bd_haiku"
+				command claude "$@"
+			}
+			alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility command claude'
+		EOBASH
+		;;
 	esac
 }
 
@@ -566,7 +572,7 @@ braindance_cmd_upgrade() {
 		return 1
 	fi
 
-	if ! grep -q "Braindance" "$rc_file" 2>/dev/null; then
+	if ! grep -q "# Braindance —" "$rc_file" 2>/dev/null; then
 		echo "[braindance] No braindance integration found in .zshrc."
 		echo "[braindance] Run 'braindance shell' to see integration snippet."
 		return 0
@@ -797,16 +803,14 @@ braindance_precmd_check() {
 # When sourced, export env vars automatically
 # When executed, dispatch CLI command
 _braindance_is_sourced() {
-	# In zsh: check ZSH_EVAL_CONTEXT for file-sourcing,
-	# also check if $0 does not end with main.sh (sourced vs executed)
+	# In zsh: check ZSH_EVAL_CONTEXT for file-sourcing vs direct execution
 	if [ -n "${ZSH_VERSION-}" ]; then
-		case "$ZSH_EVAL_CONTEXT" in
-			*:file:*)       return 0 ;;  # sourced from another file
-			*toplevel*)     return 0 ;;  # sourced from interactive prompt
+		case "${ZSH_EVAL_CONTEXT:-}" in
+			*:file*|file)   return 0 ;;  # sourcing from a file or nested context
 			*cmdarg*)       return 0 ;;  # sourced via zsh -c
+			toplevel)       return 1 ;;  # executing at top level — NOT sourced
+			*)              return 1 ;;  # unknown → assume execution
 		esac
-		# Fall through: unexpected ZSH_EVAL_CONTEXT → assume executed
-		return 1
 	elif [ -n "${BASH_SOURCE-}" ]; then
 		[ "${BASH_SOURCE[0]}" != "${0}" ] && return 0
 		return 1

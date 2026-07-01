@@ -20,18 +20,24 @@ setup() {
 	EOF
 
 	cat > "$BRAINDANCE_PRESETS_DIR/deep-thinking-offpeak.env" <<-EOF
+		ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic
+		ANTHROPIC_AUTH_TOKEN=\${BRAINDANCE_API_KEY:-}
 		ANTHROPIC_DEFAULT_OPUS_MODEL=GLM-5.2
 		ANTHROPIC_DEFAULT_SONNET_MODEL=GLM-4.7
 		ANTHROPIC_DEFAULT_HAIKU_MODEL=GLM-4.5-Air
 	EOF
 
 	cat > "$BRAINDANCE_PRESETS_DIR/deep-thinking-peak.env" <<-EOF
+		ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic
+		ANTHROPIC_AUTH_TOKEN=\${BRAINDANCE_API_KEY:-}
 		ANTHROPIC_DEFAULT_OPUS_MODEL=GLM-5-Turbo
 		ANTHROPIC_DEFAULT_SONNET_MODEL=GLM-4.7
 		ANTHROPIC_DEFAULT_HAIKU_MODEL=GLM-4.5-Air
 	EOF
 
 	cat > "$BRAINDANCE_PRESETS_DIR/docs-utility.env" <<-EOF
+		ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic
+		ANTHROPIC_AUTH_TOKEN=\${BRAINDANCE_API_KEY:-}
 		ANTHROPIC_DEFAULT_OPUS_MODEL=GLM-4.7
 		ANTHROPIC_DEFAULT_SONNET_MODEL=GLM-4.5-Air
 		ANTHROPIC_DEFAULT_HAIKU_MODEL=GLM-4.5-Air
@@ -169,4 +175,77 @@ setup() {
 	[[ "$output" == *"Braindance — auto-switch"* ]]
 	[[ "$output" == *"source"* ]]
 	[[ "$output" == *"claude-doc"* ]]
+}
+
+# ─── Shell snippet content tests ───────────────────────────────────────────────
+
+@test "braindance_cmd_shell includes transition notification block" {
+	run braindance_cmd_shell
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"last_transition"* ]]
+}
+
+@test "braindance_cmd_shell includes model banner format" {
+	run braindance_cmd_shell
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"BRAINDANCE_ACTIVE_PRESET"* ]]
+	[[ "$output" == *"ANTHROPIC_DEFAULT_OPUS_MODEL"* ]]
+	[[ "$output" == *"ANTHROPIC_DEFAULT_SONNET_MODEL"* ]]
+	[[ "$output" == *"ANTHROPIC_DEFAULT_HAIKU_MODEL"* ]]
+}
+
+@test "braindance_cmd_shell includes command claude forwarding" {
+	run braindance_cmd_shell
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"command claude"* ]]
+}
+
+# ─── Preset variable expansion tests ───────────────────────────────────────────
+
+@test "braindance_apply_preset expands BRAINDANCE_API_KEY in ANTHROPIC_AUTH_TOKEN" {
+	# Set the key and call apply_preset — it should expand ${BRAINDANCE_API_KEY} in preset file
+	export BRAINDANCE_API_KEY="sk-var-expansion-test"
+	unset ANTHROPIC_AUTH_TOKEN
+	braindance_apply_preset
+	# ANTHROPIC_AUTH_TOKEN should now be set via eval in the preset file
+	[ -n "${ANTHROPIC_AUTH_TOKEN:-}" ]
+}
+
+@test "braindance_export loads key from file and sets ANTHROPIC_AUTH_TOKEN" {
+	unset BRAINDANCE_API_KEY
+	unset ANTHROPIC_AUTH_TOKEN
+	mkdir -p "$BRAINDANCE_DIR"
+	echo -n "sk-export-chain-test" > "$BRAINDANCE_API_KEY_FILE"
+	chmod 600 "$BRAINDANCE_API_KEY_FILE"
+
+	braindance_export
+
+	[ -n "${ANTHROPIC_AUTH_TOKEN:-}" ]
+}
+
+# ─── Upgrade detection pattern tests ───────────────────────────────────────────
+
+@test "braindance_cmd_upgrade detects integration by Braindance comment header" {
+	local mock_home="${BATS_TEST_TMPDIR}/home"
+	mkdir -p "$mock_home"
+	cat > "$mock_home/.zshrc" <<-EOF
+		# Braindance — auto-switch Claude Code presets by IST time
+		export BRAINDANCE_DIR="\${BRAINDANCE_DIR:-\$HOME/.local/share/braindance}"
+		[[ -f "\$BRAINDANCE_DIR/src/main.sh" ]] && source "\$BRAINDANCE_DIR/src/main.sh"
+	EOF
+
+	HOME="$mock_home" run braindance_cmd_upgrade
+	# Should detect the integration — upgrade succeeds or says already installed
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"[braindance]"* ]]
+}
+
+@test "braindance_cmd_upgrade exits cleanly when no integration exists" {
+	local mock_home="${BATS_TEST_TMPDIR}/home2"
+	mkdir -p "$mock_home"
+	echo "# plain zshrc" > "$mock_home/.zshrc"
+
+	HOME="$mock_home" run braindance_cmd_upgrade
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"No braindance integration"* ]]
 }

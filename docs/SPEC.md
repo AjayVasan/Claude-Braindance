@@ -31,13 +31,14 @@ Claude Code users with Z.ai API access have four distinct use cases — daily co
 ```
 Claude-Braindance/
 ├── braindance               # Symlink → src/main.sh (installed to PATH)
-├── install.sh               # ~70 lines — one-shot setup
-├── Makefile                 # ~20 lines — convenience targets
+├── install.sh               # ~770 lines — interactive installer with TUI
+├── Makefile                 # ~45 lines — convenience targets
 ├── README.md
 │
 ├── src/
-│   ├── main.sh              # ~700 lines — core engine
-│   └── skills.sh            # ~300 lines — skills management
+│   ├── main.sh              # ~820 lines — core engine + CLI dispatcher
+│   ├── skills.sh            # ~320 lines — skills management
+│   └── completion.zsh       # ~70 lines — zsh tab-completions
 ├── presets/
 │   ├── daily-coding.env
 │   ├── deep-thinking-offpeak.env
@@ -66,6 +67,9 @@ Claude-Braindance/
 | **Preset Router** | `src/main.sh` | Maps time → preset: 00:00-06:29 daily, 06:30-11:29 offpeak, 11:30-15:30 peak, 15:30-23:59 offpeak |
 | **Precmd Hook** | `src/main.sh` | Watches for time-window crossings, persists notification to `$BRAINDANCE_DIR/last_transition`, auto-exports new `ANTHROPIC_*` vars |
 | **Key Manager** | `src/main.sh` | Store/read/verify API key with `chmod 600` |
+| **Installer TUI** | `install.sh` | Cyberpunk braindance cinematic + interactive menu with arrow-key navigation |
+| **Input Drain** | `install.sh` | Multi-pass stdin drain after API key paste to prevent stray bytes from corrupting TUI |
+| **Key Reader** | `install.sh` | Raw escape-sequence parsing (ANSI + application mode) for arrow-key/ESC detection |
 | **Shell Hook** | `src/main.sh` | Emits bash/zsh/fish integration snippet |
 | **Skills Registry** | `src/skills.sh` | 5 curated skill sources with install/remove/docs |
 
@@ -174,7 +178,17 @@ Adding a new provider = create a new preset `.env` file with the provider's base
 | E6 | 11:30 boundary clock skew | ±60s grace window + deterministic function | 5 |
 | E7 | Stale override env var after preset auto | `--check` uses file as authority, drops env var fallback | 6 |
 | E8 | Prompt notification on time crossing | `precmd`/`PROMPT_COMMAND` hook, skips when override active | 25 |
-| E9 | In-flight message during time transition | Precmd hook writes `last_transition` file; active `claude` session unchanged; notification displayed on next `claude` launch; old prompts never re-sent to new model | 15 |
+| E9 | In-flight message during time transition | Precmd hook writes `last_transition` file; notification displayed on next `claude` launch; old prompts never re-sent | 15 |
+| E10 | Missing shell config file | `install.sh` checks `[ -f "$shell_config" ]` before prompting | 3 |
+| E11 | Zsh completions dir doesn't exist | `mkdir -p $HOME/.zsh/completions` before copy | 1 |
+| E12 | API key shown in plaintext during install | `read -s` (silent mode) + clear line after input | 2 |
+| E13 | Hook or completions install failure | `|| true` guard — non-critical step never blocks install | 2 |
+| E14 | Skills dir doesn't exist | `braindance_skills_dir` auto-creates with `mkdir -p` | 1 |
+| E15 | Skill name path traversal | Sanitize: strip `/` and `..` before `rm -rf` | 3 |
+| E16 | BRAINDANCE_API_KEY loaded after preset source | Load key from file BEFORE `braindance_apply_preset` so `${VAR:-}` expansion resolves correctly | 5 |
+| E17 | Zsh arrow keys in application mode | `_read_key` handles both `\x1b[A` (ANSI) and `\x1bOA` (application mode) escape sequences | 3 |
+| E18 | Stale input from paste corrupting TUI | Three-pass `_drain_input` with 100ms timeout per pass | 6 |
+| E19 | ZSH_EVAL_CONTEXT toplevel vs sourcing | Explicit `toplevel => return 1`, `*:file*|file|*cmdarg* => return 0` | 6 |
 ---
 
 ## 7. Dependencies
@@ -244,18 +258,21 @@ The installer does NOT modify `.zshrc` without asking. Explicit confirmation req
 ```bash
 git clone https://github.com/AjayVasan/Claude-Braindance.git
 cd Claude-Braindance
-bash install.sh
+bash install.sh                # Interactive — cinematic intro + step-by-step + TUI help
+bash install.sh --yes          # Non-interactive — auto-confirm all prompts, skip animations
   → Detects: Linux | macOS + zsh | bash | fish
-  → Creates: ~/.local/share/braindance/{presets,skills,api-key}
+  → Creates: ~/.local/share/braindance/{presets,skills,src,api-key}
   → Symlinks: ~/.local/bin/braindance → src/main.sh
-  → Prompts: Add to shell config? [Y/n]
-  → Prompts: Set Z.ai API key? [y/N]
+  → Prompts: Add to shell config? [Y/n]         (auto-yes with --yes)
+  → Prompts: Set Z.ai API key? [y/N]            (skipped with --yes)
+  → Hooks:   Installs Claude Code SessionStart hook
+  → Completions: Installs zsh tab-completions (if zsh detected)
+  → TUI:     Interactive help menu with arrow-key navigation (skipped with --yes)
 → exec $SHELL
 → braindance --check
-→ claude          # Uses time-based preset
+→ claude          # Uses time-based preset, shows model banner
 → claude-doc      # Always docs-utility preset
 ```
-
 ---
 
 ## 11. Testing

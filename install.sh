@@ -297,27 +297,6 @@ _bd_step_show() {
 	esac
 }
 
-# Animate a step: type out description, then mark done
-_bd_step_run() {
-	local content_row="$1" step_num="$2" desc="$3"
-	shift 3
-	# Run the actual command, capture output
-	local out
-	out=$("$@" 2>&1) || {
-		# Red X on failure
-		_bd_step_show "$content_row" "$step_num" "$desc" running
-		local cols left box_width
-		cols=$(_bd_cols)
-		box_width=58
-		left=$(( (cols - box_width) / 2 ))
-		[[ $left -lt 0 ]] && left=0
-		local x_col=$((left + box_width - 4))
-		printf '\033[%d;%dH\033[91m✗\033[0m\033[K' "$content_row" "$x_col"
-		printf '\033[%d;%dH\033[91m%s\033[0m\033[K\n' $((content_row + 1)) "$((left + 4))" "$out"
-		return 1
-	}
-	_bd_step_show "$content_row" "$step_num" "$desc" done
-}
 
 # Animate a step description typing
 _bd_step_type() {
@@ -495,26 +474,25 @@ _bd_interactive_help() {
 		printf '\033[%d;%dH\033[90m\033[2m↑↓ navigate  ·  q/ESC exit\033[0m\033[K' \
 			$footer_row $((left + 2))
 	}
-
 	_read_key() {
 		local key seq
 		IFS= read -r -s -n 1 key 2>/dev/null || { echo "QUIT"; return; }
 		if [[ $key == $'\x1b' ]]; then
-			# Read escape sequence one byte at a time with short timeout
+			# Read escape sequence — longer timeout in case terminal sends bytes slowly
 			seq=""
 			local i
-			for ((i=0; i<3; i++)); do
-				read -r -s -t 0.03 -n 1 key 2>/dev/null || break
+			for ((i=0; i<5; i++)); do
+				read -r -s -t 0.1 -n 1 key 2>/dev/null || break
 				seq="$seq$key"
 			done
 			case "$seq" in
-				'[A') echo "UP"    ;;
-				'[B') echo "DOWN"  ;;
-				'[C') echo "RIGHT" ;;
-				'[D') echo "LEFT"  ;;
-				'')   echo "ESC"   ;;  # bare Escape, no trailing bytes
+				'[A'|'OA')   echo "UP"    ;;
+				'[B'|'OB')   echo "DOWN"  ;;
+				'[C'|'OC')   echo "RIGHT" ;;
+				'[D'|'OD')   echo "LEFT"  ;;
+				'')          echo "ESC"   ;;  # bare Escape, no trailing bytes
 			esac
-		elif [[ -z "$key" ]] || [[ $key == $'\x0a' ]]; then
+		elif [[ $key == $'\x0a' ]] || [[ $key == $'\x0d' ]]; then
 			echo "ENTER"
 		elif [[ $key == "q" ]] || [[ $key == "Q" ]]; then
 			echo "QUIT"
@@ -527,7 +505,8 @@ _bd_interactive_help() {
 	if $ANIMATE; then
 		# Clean reveal — no full-screen flash, just type out completion text
 		local complete_row=$((rows/2-1))
-		local complete_col=$(_bd_center_col "BRAINDANCE - CALIBRATION COMPLETE")
+		local complete_col
+		complete_col=$(_bd_center_col "BRAINDANCE - CALIBRATION COMPLETE")
 		_bd_type "BRAINDANCE - CALIBRATION COMPLETE" "$complete_row" "$complete_col" 0.008
 		sleep 0.4
 	fi
@@ -536,10 +515,9 @@ _bd_interactive_help() {
 	# Aggressively drain leftover stdin (API key paste may leave stray bytes)
 	_drain_input() {
 		local d
-		# Drain with longer timeout — catches leftover from paste + accidental keypresses
-		while read -t 0.05 -s -n 1 d 2>/dev/null; do :; done
-		# Second pass in case more buffered data arrived
-		while read -t 0.05 -s -n 1 d 2>/dev/null; do :; done
+		while read -r -t 0.1 -s -n 1 d 2>/dev/null; do :; done
+		while read -r -t 0.1 -s -n 1 d 2>/dev/null; do :; done
+		while read -r -t 0.05 -s -n 1 d 2>/dev/null; do :; done
 	}
 	_drain_input
 
@@ -567,7 +545,7 @@ _bd_interactive_help() {
 		case $(_read_key) in
 			UP)    ((selected > 0)) && ((selected--)) ;;
 			DOWN)  ((selected < count-1)) && ((selected++)) ;;
-			QUIT|ESC|ENTER) break ;;
+			QUIT|ESC) break ;;
 		esac
 	done
 }
@@ -652,7 +630,7 @@ install_braindance() {
 		_bd_step_show "$((step_row + 4))" "4/6" "Wiring shell integration" running
 	fi
 	if [ -n "$shell_config" ] && [ -f "$shell_config" ]; then
-		if grep -q "Braindance — auto-switch Claude Code presets" "$shell_config" 2>/dev/null; then
+		if grep -q "# Braindance —" "$shell_config" 2>/dev/null; then
 			_bd_step_show "$((step_row + 4))" "4/6" "Wiring shell integration" done
 			_bd_step_info $((step_row + 5)) "  Already wired — skipping"
 		else
@@ -674,13 +652,26 @@ install_braindance() {
 					echo "# Braindance — auto-switch Claude Code presets by IST time"
 					echo "export BRAINDANCE_DIR=\"\${BRAINDANCE_DIR:-\$HOME/.local/share/braindance}\""
 					echo "[[ -f \"\$BRAINDANCE_DIR/src/main.sh\" ]] && source \"\$BRAINDANCE_DIR/src/main.sh\""
-					echo ""
-					echo "# Re-evaluate preset on every claude invocation"
-					echo "claude() {"
-					echo "	[[ -f \"\$BRAINDANCE_DIR/src/main.sh\" ]] && source \"\$BRAINDANCE_DIR/src/main.sh\""
-					echo '	command claude "$@"'
-					echo "}"
-					echo "alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility command claude'"
+				echo ""
+				echo "# Re-evaluate preset on every claude invocation"
+				echo "claude() {"
+				echo "	[[ -f \"\$BRAINDANCE_DIR/src/main.sh\" ]] && source \"\$BRAINDANCE_DIR/src/main.sh\""
+				echo ""
+				echo "	# Show pending time-transition notification if any"
+				echo "	if [ -f \"\$BRAINDANCE_DIR/last_transition\" ]; then"
+				echo "		cat \"\$BRAINDANCE_DIR/last_transition\""
+				echo "		rm -f \"\$BRAINDANCE_DIR/last_transition\""
+				echo "		echo \"\""
+				echo "	fi"
+				echo ""
+				echo "	local bd_preset=\"\${BRAINDANCE_ACTIVE_PRESET:-unknown}\""
+				echo "	local bd_opus=\"\${ANTHROPIC_DEFAULT_OPUS_MODEL:-?}\""
+				echo "	local bd_sonnet=\"\${ANTHROPIC_DEFAULT_SONNET_MODEL:-?}\""
+				echo "	local bd_haiku=\"\${ANTHROPIC_DEFAULT_HAIKU_MODEL:-?}\""
+				echo "	printf \"  [braindance] %s | opus: %s  sonnet: %s  haiku: %s\\n\" \"\$bd_preset\" \"\$bd_opus\" \"\$bd_sonnet\" \"\$bd_haiku\""
+				echo "	command claude \"\$@\""
+				echo "}"
+				echo "alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility command claude'"
 				} >> "$shell_config"
 				_bd_step_info $((step_row + 5)) "  ✓ Added to ${shell_config}"
 			else
@@ -701,33 +692,34 @@ install_braindance() {
 	if [ -f "$BRAINDANCE_DIR/api-key" ]; then
 		_bd_step_show "$((step_row + 7))" "5/6" "Registering biometric key" done
 		_bd_step_info $((step_row + 8)) "  Key already registered"
+else
+	_bd_step_show "$((step_row + 7))" "5/6" "Registering biometric key" done
+	if $AUTO_CONFIRM; then
+		_bd_step_info $((step_row + 8)) "  Skipped — set later: braindance set-key"
 	else
-		_bd_step_show "$((step_row + 7))" "5/6" "Registering biometric key" done
-		if $AUTO_CONFIRM; then
-			_bd_step_info $((step_row + 8)) "  Skipped — set later: braindance set-key"
-		else
-			printf '\033[%d;%dH\033[93m  Set Z.ai API key now? [Y/n] \033[0m' \
-				$((step_row + 8)) $((box_indent))
-			read -r yn
-			case "$yn" in
-				""|y|Y|yes|YES)
+		printf '\033[%d;%dH\033[93m  Set Z.ai API key now? [Y/n] \033[0m' \
+			$((step_row + 8)) $((box_indent))
+		read -r yn
+		case "$yn" in
+			""|y|Y|yes|YES)
 				printf '\033[%d;%dH\033[96m  Enter Z.ai API key (sk-...): \033[0m' \
 					$((step_row + 8)) $((box_indent))
-					read -r api_key
-					printf '\033[%d;%dH\033[K' $((step_row + 8))
-					if [ -n "$api_key" ]; then
-						bash "$BRAINDANCE_DIR/src/main.sh" set-key "$api_key" &>/dev/null
-						_bd_step_info $((step_row + 8)) "  ✓ Biometric key stored"
-					else
-						_bd_step_info $((step_row + 8)) "  No key — set later: braindance set-key"
-					fi
-					;;
-				*)
-					_bd_step_info $((step_row + 8)) "  Skipped — set later: braindance set-key"
-					;;
-			esac
-		fi
+				read -r -s api_key
+				echo
+				printf '\033[%dH\033[K' $((step_row + 8))
+				if [ -n "$api_key" ]; then
+					bash "$BRAINDANCE_DIR/src/main.sh" set-key "$api_key" &>/dev/null
+					_bd_step_info $((step_row + 8)) "  ✓ Biometric key stored"
+				else
+					_bd_step_info $((step_row + 8)) "  No key — set later: braindance set-key"
+				fi
+				;;
+			*)
+				_bd_step_info $((step_row + 8)) "  Skipped — set later: braindance set-key"
+				;;
+		esac
 	fi
+fi
 	sleep 0.1
 
 	# ── Step 6: Hooks ──

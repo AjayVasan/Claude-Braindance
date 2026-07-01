@@ -83,13 +83,14 @@ No daemons. No background processes. No 200MB dependency installs. It's a shell 
 | **📦 Skills installer** | Discover and install 5+ curated Claude Code skill packs |
 | **🏥 Diagnostic mode** | `braindance --check` shows full status at a glance |
 ---
-
 ## Quick Start
 
 ```bash
 git clone https://github.com/AjayVasan/Claude-Braindance.git
 cd Claude-Braindance
-bash install.sh
+bash install.sh          # Interactive (cinematic intro + prompts)
+# or non-interactive:
+bash install.sh --yes    # Auto-confirm, skip animations, no prompts
 exec $SHELL
 braindance --check
 claude
@@ -99,8 +100,10 @@ The installer walks you through:
 1. Detecting your OS and shell
 2. Copying files to `~/.local/share/braindance/`
 3. Symlinking `braindance` to your PATH
-4. Optionally adding shell integration to your config
+4. Prompting to add shell integration to your config
 5. Optionally storing your API key
+6. Installing Claude Code SessionStart hook + zsh completions
+7. Showing interactive help menu (arrow-key navigable)
 
 ---
 
@@ -152,6 +155,7 @@ $ braindance preset deep-thinking-peak
 | `braindance skills list` | List available Claude Code skill sources |
 | `braindance skills install <name>` | Clone and install a skill pack |
 | `braindance skills install --all` | Install all curated skill sources |
+| `braindance skills remove <name>` | Remove an installed skill pack |
 | `braindance skills docs` | Generate ecosystem documentation |
 | `braindance --help` | Show help |
 
@@ -252,6 +256,17 @@ The `last_transition` file is shown in three places, then cleaned up:
 | 4 | **File deleted** | After first display by either handler |
 
 ### Fish shell
+
+Fish is supported — `braindance shell` emits the correct snippet:
+
+```fish
+# Braindance — auto-switch Claude Code presets by IST time
+set -q BRAINDANCE_DIR; or set -gx BRAINDANCE_DIR "$HOME/.local/share/braindance"
+source $BRAINDANCE_DIR/src/main.sh
+alias claude-doc="env BRAINDANCE_PRESET_OVERRIDE=docs-utility claude"
+```
+
+Add these lines to `~/.config/fish/config.fish`. The `install.sh` installer detects fish and prompts to add integration automatically.
 ---
 
 ## Skills Ecosystem
