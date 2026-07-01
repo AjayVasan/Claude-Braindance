@@ -532,19 +532,26 @@ braindance_cmd_hooks_install() {
 
 	{
 		printf '\n'
-		printf '%s\n' "$marker_start"
-		printf '# Braindance — show active preset at Claude Code session start\n'
-		printf 'BRAINDANCE_DIR="${BRAINDANCE_DIR:-$HOME/.local/share/braindance}"\n'
-		printf 'if [ -f "$BRAINDANCE_DIR/src/main.sh" ]; then\n'
-		printf '  source "$BRAINDANCE_DIR/src/main.sh" 2>/dev/null\n'
-		printf '  printf '"'"'╭─ braindance ─────────────────────────────────────────╮\n'"'"'\n'
-		printf '  printf '"'"'│ mindset:  %-41s │\n'"'"' "${BRAINDANCE_ACTIVE_PRESET:-unknown}"\n'
-		printf '  printf '"'"'│ opus:     %-41s │\n'"'"' "${ANTHROPIC_DEFAULT_OPUS_MODEL:-not-set}"\n'
-		printf '  printf '"'"'│ sonnet:   %-41s │\n'"'"' "${ANTHROPIC_DEFAULT_SONNET_MODEL:-not-set}"\n'
-		printf '  printf '"'"'│ haiku:    %-41s │\n'"'"' "${ANTHROPIC_DEFAULT_HAIKU_MODEL:-not-set}"\n'
-		printf '  printf '"'"'╰──────────────────────────────────────────────────────╯\n'"'"'\n'
-		printf 'fi\n'
-		printf '%s\n' "$marker_end"
+	printf '%s\n' "$marker_start"
+	printf '# Braindance — show active preset at Claude Code session start\n'
+	printf 'BRAINDANCE_DIR="${BRAINDANCE_DIR:-$HOME/.local/share/braindance}"\n'
+	printf 'if [ -f "$BRAINDANCE_DIR/src/main.sh" ]; then\n'
+	printf '  source "$BRAINDANCE_DIR/src/main.sh" 2>/dev/null\n'
+	printf '\n'
+	printf '  # Show pending time-transition notification\n'
+	printf '  if [ -f "$BRAINDANCE_DIR/last_transition" ]; then\n'
+	printf '    cat "$BRAINDANCE_DIR/last_transition"\n'
+	printf '    rm -f "$BRAINDANCE_DIR/last_transition"\n'
+	printf '  fi\n'
+	printf '\n'
+	printf '  printf '"'"'╭─ braindance ─────────────────────────────────────────╮\n'"'"'\n'
+	printf '  printf '"'"'│ mindset:  %-41s │\n'"'"' "${BRAINDANCE_ACTIVE_PRESET:-unknown}"\n'
+	printf '  printf '"'"'│ opus:     %-41s │\n'"'"' "${ANTHROPIC_DEFAULT_OPUS_MODEL:-not-set}"\n'
+	printf '  printf '"'"'│ sonnet:   %-41s │\n'"'"' "${ANTHROPIC_DEFAULT_SONNET_MODEL:-not-set}"\n'
+	printf '  printf '"'"'│ haiku:    %-41s │\n'"'"' "${ANTHROPIC_DEFAULT_HAIKU_MODEL:-not-set}"\n'
+	printf '  printf '"'"'╰──────────────────────────────────────────────────────╯\n'"'"'\n'
+	printf 'fi\n'
+	printf '%s\n' "$marker_end"
 	} >> "$hook_file"
 
 	echo "[braindance] ✓ Hook updated at $hook_file"
@@ -574,6 +581,14 @@ braindance_cmd_upgrade() {
 	echo ""
 		echo 'claude() {'
 		echo '	[[ -f "$BRAINDANCE_DIR/src/main.sh" ]] && source "$BRAINDANCE_DIR/src/main.sh"'
+		echo ''
+		echo '	# Show pending time-transition notification if any'
+		echo '	if [ -f "$BRAINDANCE_DIR/last_transition" ]; then'
+		echo '		cat "$BRAINDANCE_DIR/last_transition"'
+		echo '		rm -f "$BRAINDANCE_DIR/last_transition"'
+		echo '		echo ""'
+		echo '	fi'
+		echo ''
 		echo '	local bd_preset="${BRAINDANCE_ACTIVE_PRESET:-unknown}"'
 		echo '	local bd_opus="${ANTHROPIC_DEFAULT_OPUS_MODEL:-?}"'
 		echo '	local bd_sonnet="${ANTHROPIC_DEFAULT_SONNET_MODEL:-?}"'
@@ -745,13 +760,29 @@ braindance_precmd_check() {
 		braindance_apply_preset "$current_preset"
 		export BRAINDANCE_ACTIVE_PRESET="${BRAINDANCE_APPLIED_PRESET:-}"
 
-		# Print notification
 		echo ""
 		echo "[braindance] ⏰ Auto-switched: $_BD_LAST_PRESET → $current_preset"
 		printf "  %-12s %-20s → %s\n" "Opus:"   "$_bd_o_opus"   "$_BD_OPUS"
 		printf "  %-12s %-20s → %s\n" "Sonnet:" "$_bd_o_sonnet" "$_BD_SONNET"
 		printf "  %-12s %-20s → %s\n" "Haiku:"  "$_bd_o_haiku"  "$_BD_HAIKU"
 		echo ""
+
+		# Persist notification for claude() wrapper and SessionStart hook
+		mkdir -p "$BRAINDANCE_DIR"
+		{
+			echo "━━━ braindance ⏰ Models Changed ━━━━━━━━━━━━━━━━━━━━━━━━━"
+			echo ""
+			echo "  A time-window transition happened while you were away."
+			echo "  Your shell already has the new models — just run"
+			echo "  'claude' again to resume your chat with the new models."
+			echo ""
+			echo "  $_BD_LAST_PRESET → $current_preset"
+			printf "  %-12s %-20s → %s\n" "Opus:"   "$_bd_o_opus"   "$_BD_OPUS"
+			printf "  %-12s %-20s → %s\n" "Sonnet:" "$_bd_o_sonnet" "$_BD_SONNET"
+			printf "  %-12s %-20s → %s\n" "Haiku:"  "$_bd_o_haiku"  "$_BD_HAIKU"
+			echo ""
+			echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+		} > "$BRAINDANCE_DIR/last_transition"
 	fi
 
 	_BD_LAST_PRESET="$current_preset"
