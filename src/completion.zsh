@@ -1,54 +1,63 @@
-#compdef braindance
-# Zsh completion for Braindance — Claude Code preset switcher
-# Install: braindance completions install  (or  source src/completion.zsh)
+# Braindance zsh completion — source this file directly in .zshrc
+# Usage: source src/completion.zsh  (or  braindance completions install)
 
-_braindance_presets() {
-	local -a presets
-	presets=(
-		'daily-coding:GLM-4.7 all models. Default 00:00-06:29 IST'
-		'deep-thinking-offpeak:GLM-5.2 Opus. Before 11:30AM or after 3:30PM IST'
-		'deep-thinking-peak:GLM-5-Turbo Opus. 11:30AM-3:30PM IST peak hours'
-		'docs-utility:GLM-4.7 Opus, GLM-4.5-Air Sonnet/Haiku. Docs and utility'
-	)
-	_describe 'preset' presets
-}
-
-_braindance() {
-	local context state state_descr line
+_braindance_complete() {
+	local curcontext="$curcontext" state line
 	typeset -A opt_args
 
 	_arguments -C \
 		'--check[Show diagnostic: time, preset, models, API key]' \
-		'--help[Show usage help]' \
-		'set-key:API token: ' \
-		'preset:Switch mindset:->presets' \
-		'shell:Print shell integration snippet: ' \
-		'hooks-install:Install Claude Code hook: ' \
-		'completions:Install shell completions:->completions' \
-		'skills:Manage skill sources:->skills' && return 0
+		'--help[Show usage information]' \
+		'(preset):subcommand:->subcmd' \
+		'*::arg:->args'
 
 	case $state in
-		presets)
-			_braindance_presets
-			;;
-		skills)
-			local -a skills_cmds
-			skills_cmds=(
-				'list:Show available skill sources'
-				'install:Clone and install a skill source'
-				'remove:Remove an installed skill source'
-				'docs:Generate skills ecosystem documentation'
+		subcmd)
+			local -a subcmds
+			subcmds=(
+				'--check:Show current preset status'
+				'--help:Show help'
+				'set-key:Store your Z.ai API key'
+				'preset:Switch to a different mindset'
+				'shell:Print shell integration snippet'
+				'hooks-install:Install Claude Code startup hook'
+				'completions:Install shell tab-completions'
+				'skills:Manage Claude Code skill sources'
 			)
-			_describe 'skill command' skills_cmds
+			_describe -t commands 'braindance command' subcmds
 			;;
-		completions)
-			local -a comp_cmds
-			comp_cmds=(
-				'install:Install zsh completions to FPATH'
-			)
-			_describe 'completion command' comp_cmds
+		args)
+			case $line[1] in
+				preset)
+					local -a presets
+					presets=(
+						'daily-coding:GLM-4.7 all models. Default 00:00-06:29 IST'
+						'deep-thinking-offpeak:GLM-5.2 Opus. 06:30-11:29 and 15:30-23:59 IST'
+						'deep-thinking-peak:GLM-5-Turbo Opus. 11:30-15:30 IST peak hours'
+						'docs-utility:GLM-4.7 Opus. GLM-4.5-Air Sonnet/Haiku. Docs and utility'
+					)
+					_describe -t presets 'preset' presets
+					;;
+				skills)
+					local -a skills_cmds
+					skills_cmds=(
+						'list:Show available skill sources'
+						'install:Clone and install a skill'
+						'remove:Remove an installed skill'
+						'docs:Generate skills documentation'
+					)
+					_describe -t skills 'skill command' skills_cmds
+					;;
+				completions)
+					local -a comp_cmds
+					comp_cmds=(
+						'install:Install zsh completions'
+					)
+					_describe -t completions 'completion command' comp_cmds
+					;;
+			esac
 			;;
 	esac
 }
 
-_braindance "$@"
+compdef _braindance_complete braindance

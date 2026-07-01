@@ -451,13 +451,22 @@ braindance_cmd_completions() {
 	local action="${1:-}"
 	case "$action" in
 		install)
-			local comp_dir="$HOME/.zsh/completions"
-			mkdir -p "$comp_dir"
-			cp "$BRAINDANCE_SCRIPT_DIR/completion.zsh" "$comp_dir/_braindance"
-			echo "[braindance] ✓ Completions installed to $comp_dir/_braindance"
-			echo "[braindance] Make sure your .zshrc has:"
-			echo "    fpath=(\$HOME/.zsh/completions \$fpath)"
-			echo "    compinit"
+			local comp_target="$HOME/.zsh/completions/_braindance"
+			mkdir -p "$HOME/.zsh/completions"
+			cp "$BRAINDANCE_SCRIPT_DIR/completion.zsh" "$comp_target"
+
+			# Add to shell integration if not already there
+			local rc_file="$HOME/.zshrc"
+			if grep -q "_braindance_complete" "$rc_file" 2>/dev/null; then
+				echo "[braindance] ✓ Completion already sourced in $rc_file"
+			else
+				cat >> "$rc_file" <<- EORC
+					# Braindance tab-completions
+					[[ -f "$HOME/.zsh/completions/_braindance" ]] && source "$HOME/.zsh/completions/_braindance"
+				EORC
+				echo "[braindance] ✓ Added source line to $rc_file"
+			fi
+			echo "[braindance] ✓ Completions installed. Run: exec \$SHELL"
 			;;
 		*)
 			echo "[braindance] Usage: braindance completions install"
