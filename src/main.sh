@@ -370,7 +370,27 @@ braindance_cmd_set_key() {
 	braindance_store_key "$1"
 }
 
-# braindance_cmd_preset: Override the active preset
+# braindance_read_preset_model: Reads model info from preset file into _BD_* globals
+# Arguments: preset name
+# Sets: _BD_OPUS, _BD_SONNET, _BD_HAIKU
+braindance_read_preset_model() {
+	local name="$1"
+	local preset_file
+	preset_file=$(braindance_get_preset_path "$name")
+	_BD_OPUS="<not set>"
+	_BD_SONNET="<not set>"
+	_BD_HAIKU="<not set>"
+	if [ -f "$preset_file" ]; then
+		while IFS='=' read -r _bd_k _bd_v || [ -n "$_bd_k" ]; do
+			case "$_bd_k" in
+				ANTHROPIC_DEFAULT_OPUS_MODEL)  _BD_OPUS="$_bd_v" ;;
+				ANTHROPIC_DEFAULT_SONNET_MODEL) _BD_SONNET="$_bd_v" ;;
+				ANTHROPIC_DEFAULT_HAIKU_MODEL)  _BD_HAIKU="$_bd_v" ;;
+			esac
+		done < "$preset_file"
+	fi
+}
+
 braindance_cmd_preset() {
 	if [ $# -lt 1 ]; then
 		echo "[braindance] Usage: braindance preset <preset-name>" >&2
@@ -399,9 +419,44 @@ braindance_cmd_preset() {
 		return 1
 	fi
 
+	# Determine current preset (same resolution as --check)
+	local curr_name=""
+	if [ -f "$BRAINDANCE_DIR/override" ]; then
+		curr_name=$(cat "$BRAINDANCE_DIR/override")
+	elif [ -n "${BRAINDANCE_PRESET_OVERRIDE:-}" ]; then
+		curr_name="$BRAINDANCE_PRESET_OVERRIDE"
+	else
+		curr_name=$(braindance_detect_preset)
+	fi
+
+	# Already on this preset — just print status
+	if [ "$curr_name" = "$name" ]; then
+		braindance_read_preset_model "$name"
+		echo "[braindance] Already on preset: $name"
+		echo "  Opus:   $_BD_OPUS"
+		echo "  Sonnet: $_BD_SONNET"
+		echo "  Haiku:  $_BD_HAIKU"
+		return 0
+	fi
+
+	# Read old and new preset models
+	braindance_read_preset_model "$curr_name"
+	local old_opus="$_BD_OPUS" old_sonnet="$_BD_SONNET" old_haiku="$_BD_HAIKU"
+
+	braindance_read_preset_model "$name"
+	local new_opus="$_BD_OPUS" new_sonnet="$_BD_SONNET" new_haiku="$_BD_HAIKU"
+
+	# Persist the override
 	mkdir -p "$BRAINDANCE_DIR"
 	echo "$name" > "$BRAINDANCE_DIR/override"
-	echo "[braindance] Preset overridden to: $name"
+
+	# Print transition with mindset and model diff
+	echo "[braindance] Mindset switched: $curr_name → $name"
+	echo ""
+	printf "  %-12s %-20s → %s\n" "Opus:"   "$old_opus"   "$new_opus"
+	printf "  %-12s %-20s → %s\n" "Sonnet:" "$old_sonnet" "$new_sonnet"
+	printf "  %-12s %-20s → %s\n" "Haiku:"  "$old_haiku"  "$new_haiku"
+	echo ""
 	echo "[braindance] Use 'braindance preset reset' to revert to time-based."
 }
 
