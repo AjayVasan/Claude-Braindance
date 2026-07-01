@@ -392,6 +392,164 @@ confirm() {
 
 # ─── Install Steps ────────────────────────────────────────────────────────────
 
+# ─── Interactive Post-Install Help ─────────────────────────────────────────
+
+# Shows a navigable menu of commands with animated explanations.
+# Arrow keys to navigate, q/ESC to exit.
+_bd_interactive_help() {
+	local rows cols
+	rows=$(_bd_rows)
+	cols=$(_bd_cols)
+
+	# Menu items: "label:description"
+	local items=(
+		"braindance --check:Full diagnostics: time, preset, model map, API key status, env vars"
+		"braindance preset <name>:Override preset: daily-coding | deep-thinking-offpeak | deep-thinking-peak | docs-utility. Shows model diff."
+		"braindance preset reset:Clear override, revert to automatic time-based preset"
+		"claude:Start Claude Code with current time-based preset models"
+		"claude-doc:Always uses docs-utility preset — docs, formatting, logs"
+		"braindance skills list:Discover & install Claude Code skill packs from GitHub"
+		"braindance set-key <key>:Store your Z.ai API key securely (chmod 600)"
+	)
+	local count=${#items[@]}
+	local selected=0
+
+	# Pre-extract labels and descriptions
+	local labels=() descs=()
+	local i item
+	for ((i=0; i<count; i++)); do
+		item="${items[$i]}"
+		labels+=("${item%%:*}")
+		descs+=("${item#*:}")
+	done
+
+	local box_w=60 box_h=14 box_color=93
+	local box_top=$(( (rows - box_h) / 2 ))
+	local left=$(( (cols - box_w) / 2 ))
+	[[ $left -lt 0 ]] && left=0
+	local indent=$((left + 3))
+	local sep_row=$((box_top + 8))
+	local footer_row=$((box_top + box_h - 1))
+
+	local edge="\033[${box_color}m\033[1m"
+	local reset="\033[0m"
+
+	_draw_frame() {
+		local r
+		printf '\033[%d;%dH%b╔' "$box_top" "$left" "$edge"
+		for ((r=0; r<box_w-2; r++)); do printf '═'; done
+		printf '╗%b' "$reset"
+		for ((r=1; r<box_h-1; r++)); do
+			printf '\033[%d;%dH%b║%b\033[K' $((box_top+r)) "$left" "$edge" "$reset"
+			printf '\033[%d;%dH%b║\033[0m\033[K' $((box_top+r)) $((left+box_w-1)) "$edge"
+		done
+		printf '\033[%d;%dH%b╚' $((box_top+box_h-1)) "$left" "$edge"
+		for ((r=0; r<box_w-2; r++)); do printf '═'; done
+		printf '╝%b\033[K' "$reset"
+	}
+
+	# Header line
+	_draw_header() {
+		printf '\033[%d;%dH\033[96m\033[1m⚡ BRAINDANCE \033[90m— calibration complete\033[0m\033[K' \
+			$((box_top+1)) $((left+2))
+	}
+
+	# Render one menu item (highlighted or normal)
+	_draw_item() {
+		local idx=$1 row=$2 active=$3
+		if (( active )); then
+			printf '\033[%d;%dH\033[93m▸\033[33m %s\033[0m\033[K' "$row" "$indent" "${labels[$idx]}"
+		else
+			printf '\033[%d;%dH\033[90m \033[2m%s\033[0m\033[K' "$row" "$indent" "${labels[$idx]}"
+		fi
+	}
+
+	# Clear the description area
+	_clear_desc() {
+		local r
+		for ((r=sep_row+1; r<footer_row-1; r++)); do
+			printf '\033[%d;%dH\033[K' "$r" "$left"
+		done
+	}
+
+	# Type out the description character by character
+	_animate_desc() {
+		local idx=$1
+		local desc="${descs[$idx]}"
+		local drow=$((sep_row + 2))
+		dcol=$((left + 3))
+		local i
+		for ((i=0; i<${#desc}; i++)); do
+			printf '\033[%d;%dH\033[96m%s\033[0m' "$drow" $((dcol+i)) "${desc:$i:1}"
+			sleep 0.005
+		done
+	}
+
+	# Footer
+	_draw_footer() {
+		printf '\033[%d;%dH\033[90m\033[2m↑↓ navigate  ·  q/ESC exit\033[0m\033[K' \
+			$footer_row $((left + 2))
+	}
+
+	# Read a keypress (handles arrow keys). Returns empty string on EOF/timeout.
+	_read_key() {
+		local key
+		IFS= read -r -s -n 1 key 2>/dev/null || { echo "QUIT"; return; }
+		if [[ $key == $'\x1b' ]]; then
+			read -r -s -n 2 key 2>/dev/null
+			case "$key" in
+				'[A') echo "UP"    ;;
+				'[B') echo "DOWN"  ;;
+				'[C') echo "RIGHT" ;;
+				'[D') echo "LEFT"  ;;
+				*)    echo "OTHER" ;;
+			esac
+		elif [[ -z "$key" ]] || [[ $key == $'\x0a' ]]; then
+			echo "ENTER"
+		elif [[ $key == "q" ]] || [[ $key == "Q" ]] || [[ $key == $'\x1b' ]]; then
+			echo "QUIT"
+		fi
+	}
+
+	# ── Render ──
+	_bd_clear
+	if $ANIMATE; then
+		_bd_flash '\033[46m' 0.08
+		local glitch_row=$((rows/2-1))
+		local glitch_col=$(( (_bd_center_col "BRAINDANCE COMPLETE") + 1 ))
+		_bd_glitch_reveal "BRAINDANCE COMPLETE" "$glitch_row" "$glitch_col" 0.02
+		sleep 0.25
+	fi
+	_bd_clear
+	_draw_frame
+	_draw_header
+	_draw_footer
+
+	# Separator line
+	printf '\033[%d;%dH\033[90m%s\033[0m\033[K' $sep_row $((left+2)) \
+		"────────────────────────────────────────"
+	printf '\033[%d;%dH\033[90m\033[2musage\033[0m\033[K' $((sep_row)) $((left+27))
+
+	# Initial render
+	local r old_selected=-1
+	while true; do
+		# Re-draw items only if selection changed
+		if (( selected != old_selected )); then
+			for ((r=0; r<count && r<6; r++)); do
+				_draw_item $r $((box_top+2+r)) $(( r == selected ? 1 : 0 ))
+			done
+			_clear_desc
+			_animate_desc "$selected"
+			old_selected=$selected
+		fi
+
+		case $(_read_key) in
+			UP)    ((selected > 0)) && ((selected--)) ;;
+			DOWN)  ((selected < count-1)) && ((selected++)) ;;
+			QUIT|ENTER) break ;;
+		esac
+	done
+}
 install_braindance() {
 	local os shell_type shell_config date_cmd
 	local content_start step_row
@@ -409,30 +567,24 @@ install_braindance() {
 
 	_bd_hide_cursor
 
-	# ── Draw the installation box (no title — we use an ASCII art header) ──
-	_bd_box "" 58 96 19; content_start=$_BD_CONTENT
+	# ── Draw the installation box ──
+	_bd_box "" 58 96 16; content_start=$_BD_CONTENT
 
-	# ── Cyberpunk ASCII art header ──
+	# Box positioning for in-box prompts
 	local bd_cols=$(_bd_cols)
 	local box_left=$(( (bd_cols - 58) / 2 ))
 	[[ $box_left -lt 0 ]] && box_left=0
-	local hdr_col=$((box_left + 4))
-
-	printf '\033[%d;%dH\033[93m         ░░▒▒▓▓▓ \033[96m⚡ BRAINDANCE ⚡\033[93m ▓▓▓▒▒░░\033[0m\033[K' \
-		$((content_start)) $hdr_col
-	printf '\033[%d;%dH\033[90m         ═══════ \033[2mneural calibration\033[90m ═══════\033[0m\033[K' \
-		$((content_start + 1)) $hdr_col
-	printf '\033[%d;%dH\033[2m\033[K' $((content_start + 2))
+	local box_indent=$((box_left + 4))
 
 	# Show detected system info
-	_bd_step_info $((content_start + 3)) "SYSTEM"
-	_bd_step_info $((content_start + 4)) "  OS:      ${os}"
-	_bd_step_info $((content_start + 5)) "  Shell:   ${shell_type}"
-	_bd_step_info $((content_start + 6)) "  Config:  ${shell_config:-"(detection failed)"}"
-	_bd_step_info $((content_start + 7)) "  Target:  ${BRAINDANCE_DIR}"
+	_bd_step_info $((content_start))     "SYSTEM"
+	_bd_step_info $((content_start + 1)) "  OS:      ${os}"
+	_bd_step_info $((content_start + 2)) "  Shell:   ${shell_type}"
+	_bd_step_info $((content_start + 3)) "  Config:  ${shell_config:-"(detection failed)"}"
+	_bd_step_info $((content_start + 4)) "  Target:  ${BRAINDANCE_DIR}"
 
-	# Steps start after system info
-	step_row=$((content_start + 9))
+	# Steps start at line 6
+	step_row=$((content_start + 6))
 
 	# ── Step 1: Create directories ──
 	if $ANIMATE; then
@@ -488,7 +640,7 @@ install_braindance() {
 				should_add=true
 			else
 				printf '\033[%d;%dH\033[93m  Add to %s? [Y/n] \033[0m' \
-					$((step_row + 5)) $((box_left + 4)) "${shell_config}"
+					$((step_row + 5)) $((box_indent)) "${shell_config}"
 				read -r response
 				case "$response" in
 					""|y|Y|yes|YES) should_add=true ;;
@@ -532,17 +684,27 @@ install_braindance() {
 		_bd_step_show "$((step_row + 7))" "5/6" "Registering biometric key" done
 		if $AUTO_CONFIRM; then
 			_bd_step_info $((step_row + 8)) "  Skipped — set later: braindance set-key"
-		elif confirm "  Set Z.ai API key now?"; then
-			printf "  Enter your Z.ai API key: "
-			read -r api_key
-			if [ -n "$api_key" ]; then
-				bash "$BRAINDANCE_DIR/src/main.sh" set-key "$api_key"
-				_bd_step_info $((step_row + 8)) "  ✓ Biometric key stored"
-			else
-				_bd_step_info $((step_row + 8)) "  No key — set later: braindance set-key"
-			fi
 		else
-			_bd_step_info $((step_row + 8)) "  Skipped — set later: braindance set-key"
+			printf '\033[%d;%dH\033[93m  Set API key now? [Y/n] \033[0m' \
+				$((step_row + 8)) $((box_indent))
+			read -r yn
+			case "$yn" in
+				""|y|Y|yes|YES)
+					printf '\033[%d;%dH\033[96m  Enter key: \033[0m' \
+						$((step_row + 8)) $((box_indent))
+					read -r api_key
+					printf '\033[%d;%dH\033[K' $((step_row + 8))
+					if [ -n "$api_key" ]; then
+						bash "$BRAINDANCE_DIR/src/main.sh" set-key "$api_key"
+						_bd_step_info $((step_row + 8)) "  ✓ Biometric key stored"
+					else
+						_bd_step_info $((step_row + 8)) "  No key — set later: braindance set-key"
+					fi
+					;;
+				*)
+					_bd_step_info $((step_row + 8)) "  Skipped — set later: braindance set-key"
+					;;
+			esac
 		fi
 	fi
 	sleep 0.1
@@ -561,50 +723,20 @@ install_braindance() {
 	fi
 	_bd_step_show "$((step_row + 10))" "6/6" "Deploying session hooks" done
 	sleep 0.3
-
-	# ── Complete ──────────────────────────────────────────────────────────
-	_bd_clear
-
+	# ── Interactive post-install help (skip in --yes mode) ──
 	if $ANIMATE; then
-		# Flash cyan
-		_bd_flash '\033[46m' 0.1
-
-		local rows cols
-		rows=$(_bd_rows)
-		cols=$(_bd_cols)
-
-		# Glitch reveal "BRAINDANCE COMPLETE"
-		local comp_row=$(( rows / 2 - 1 ))
-		local comp_text="BRAINDANCE COMPLETE"
-		local comp_col
-		comp_col=$(_bd_center_col "$comp_text")
-		_bd_glitch_reveal "$comp_text" "$comp_row" $((comp_col + 1)) 0.025
-		sleep 0.3
-
-		# Subtitle
-		local sub_text="preset minds for Claude Code"
-		local sub_col
-		sub_col=$(_bd_center_col "$sub_text")
-		printf '\033[%d;%dH\033[93m%s\033[0m' $((comp_row + 2)) "$sub_col" "$sub_text"
-		sleep 0.5
-	fi
-
-	# ── Next steps ──
-	_bd_box "" 52 93; content_start=$_BD_CONTENT
-	if $ANIMATE; then
-		local bd_c=$(_bd_cols)
-		local type_col=$(( bd_c / 2 - 14 ))
-		_bd_type "  exec \$SHELL"   "$content_start"     "$type_col" 0.008
-		_bd_type "  braindance --check"  "$((content_start + 1))" "$type_col" 0.008
-		_bd_type "  claude"              "$((content_start + 2))" "$type_col" 0.008
+		_bd_interactive_help
 	else
+		_bd_clear
+		local cols=$(_bd_cols)
+		_bd_center "\033[96m\033[1m⚡ BRAINDANCE\033[0m"
+		_bd_center "\033[2mInstallation complete\033[0m"
+		echo ""
 		_bd_center "\033[93mexec \$SHELL\033[0m"
 		_bd_center "\033[93mbraindance --check\033[0m"
 		_bd_center "\033[93mclaude\033[0m"
+		sleep 1
 	fi
-
-	sleep 0.5
-
 	# Exit the alt screen
 	_bd_show_cursor
 	_bd_alt_off
