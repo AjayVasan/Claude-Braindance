@@ -121,11 +121,12 @@ install_braindance() {
 					echo "export BRAINDANCE_DIR=\"\${BRAINDANCE_DIR:-\$HOME/.local/share/braindance}\""
 					echo "[[ -f \"\$BRAINDANCE_DIR/src/main.sh\" ]] && source \"\$BRAINDANCE_DIR/src/main.sh\""
 					echo ""
-					echo "# Re-evaluate preset on every claude invocation"
-					echo "claude() {"
-					echo "	[[ -f \"\$BRAINDANCE_DIR/src/main.sh\" ]] && source \"\$BRAINDANCE_DIR/src/main.sh\""
-					echo '	command claude "$@"'
-					echo "}"
+				echo "# Re-evaluate preset on every claude invocation"
+				echo "claude() {"
+				echo "	[[ -f \"\$BRAINDANCE_DIR/src/main.sh\" ]] && source \"\$BRAINDANCE_DIR/src/main.sh\""
+				echo '	echo "  [braindance] ${BRAINDANCE_ACTIVE_PRESET:-unknown} | Opus: ${ANTHROPIC_DEFAULT_OPUS_MODEL:-not-set}"'
+				echo '	command claude "$@"'
+				echo "}"
 					echo "alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility command claude'"
 				} >> "$shell_config"
 				echo "  ✓ Added to ${shell_config}"

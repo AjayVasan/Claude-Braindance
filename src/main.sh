@@ -391,6 +391,7 @@ braindance_cmd_shell() {
 				# Wrap claude to re-evaluate preset on every invocation
 				claude() {
 					[[ -f "\$BRAINDANCE_DIR/src/main.sh" ]] && source "\$BRAINDANCE_DIR/src/main.sh"
+					echo "  [braindance] \${BRAINDANCE_ACTIVE_PRESET:-unknown} | Opus: \${ANTHROPIC_DEFAULT_OPUS_MODEL:-not-set}"
 					command claude "\$@"
 				}
 				alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility command claude'
