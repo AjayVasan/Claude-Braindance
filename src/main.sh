@@ -724,7 +724,7 @@ braindance_register_precmd() {
 
 # braindance_precmd_check: Runs before each prompt — detects time-window crossings
 # Skips when an override file is present (manual mode)
-# Prints a one-line notification + model diff only on actual transitions
+# On transition: applies the new preset (exports ANTHROPIC_* vars) and prints model diff
 braindance_precmd_check() {
 	# Skip entirely if override is active — user is in manual mode
 	if [ -f "$BRAINDANCE_DIR/override" ]; then
@@ -737,13 +737,17 @@ braindance_precmd_check() {
 	current_preset=$(braindance_detect_preset)
 
 	if [ -n "$_BD_LAST_PRESET" ] && [ "$current_preset" != "$_BD_LAST_PRESET" ]; then
-		# Time window crossed — read models for old and new presets
+		# Read old models for the diff display
 		braindance_read_preset_model "$_BD_LAST_PRESET"
 		local _bd_o_opus="$_BD_OPUS" _bd_o_sonnet="$_BD_SONNET" _bd_o_haiku="$_BD_HAIKU"
-		braindance_read_preset_model "$current_preset"
 
+		# Apply the new preset — exports ANTHROPIC_* vars to the live shell
+		braindance_apply_preset "$current_preset"
+		export BRAINDANCE_ACTIVE_PRESET="${BRAINDANCE_APPLIED_PRESET:-}"
+
+		# Print notification
 		echo ""
-		echo "[braindance] ⏰ Time window changed: $_BD_LAST_PRESET → $current_preset"
+		echo "[braindance] ⏰ Auto-switched: $_BD_LAST_PRESET → $current_preset"
 		printf "  %-12s %-20s → %s\n" "Opus:"   "$_bd_o_opus"   "$_BD_OPUS"
 		printf "  %-12s %-20s → %s\n" "Sonnet:" "$_bd_o_sonnet" "$_BD_SONNET"
 		printf "  %-12s %-20s → %s\n" "Haiku:"  "$_bd_o_haiku"  "$_BD_HAIKU"

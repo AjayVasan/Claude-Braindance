@@ -204,16 +204,18 @@ To regenerate the snippet: `braindance shell`
 
 ### Auto-Notification (Precmd Hook)
 
-Once sourced, Braindance registers a lightweight shell hook that watches for time-window crossings. When the clock passes a boundary (e.g., 11:30 → peak), the next prompt shows:
+### Auto-Notification + Auto-Switch (Precmd Hook)
+
+Once sourced, Braindance registers a lightweight shell hook that watches for time-window crossings. When the clock passes a boundary (e.g., 11:30 → peak), it **automatically exports the new ANTHROPIC_* vars** to your live shell and shows:
 
 ```
-[braindance] ⏰ Time window changed: deep-thinking-offpeak → deep-thinking-peak
+[braindance] ⏰ Auto-switched: deep-thinking-offpeak → deep-thinking-peak
   Opus:        GLM-5.2              → GLM-5-Turbo
   Sonnet:      GLM-4.7              → GLM-4.7
   Haiku:       GLM-4.5-Air          → GLM-4.5-Air
 ```
 
-No background processes — just a `precmd`/`PROMPT_COMMAND` hook that runs in <1ms. Skips entirely when a manual override is active.
+No manual re-source needed — your `claude` command immediately uses the right models. No background processes — just a `precmd`/`PROMPT_COMMAND` hook that runs in <1ms. Skips entirely when a manual override is active.
 
 ### Fish shell
 ```fish
