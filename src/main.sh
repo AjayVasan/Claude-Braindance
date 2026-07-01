@@ -401,7 +401,6 @@ braindance_cmd_shell() {
 				# Wrap claude to re-evaluate preset on every invocation
 				claude() {
 					[[ -f "\$BRAINDANCE_DIR/src/main.sh" ]] && source "\$BRAINDANCE_DIR/src/main.sh"
-					echo "  [braindance] \${BRAINDANCE_ACTIVE_PRESET:-unknown} | Opus: \${ANTHROPIC_DEFAULT_OPUS_MODEL:-not-set}"
 					command claude "\$@"
 				}
 				alias claude-doc='BRAINDANCE_PRESET_OVERRIDE=docs-utility command claude'
@@ -413,46 +412,39 @@ braindance_cmd_shell() {
 # braindance_cmd_hooks_install: Install Claude Code SessionStart hook
 braindance_cmd_hooks_install() {
 	local hooks_dir="$HOME/.claude/hooks"
-	local marker="# === braindance ==="
-	local hook_script
+	local marker_start="# === braindance start ==="
+	local marker_end="# === braindance end ==="
+	local hook_file="$hooks_dir/SessionStart"
 
 	mkdir -p "$hooks_dir"
 
-	hook_script=$(cat <<- 'HOOK'
-		# Braindance — show active preset at Claude Code session start
-		BRAINDANCE_DIR="${BRAINDANCE_DIR:-$HOME/.local/share/braindance}"
-		if [ -f "$BRAINDANCE_DIR/src/main.sh" ]; then
-			source "$BRAINDANCE_DIR/src/main.sh" 2>/dev/null
-			printf '╭─ braindance ─────────────────────────────────────────╮\n'
-			printf '│ mindset:  %-41s │\n' "${BRAINDANCE_ACTIVE_PRESET:-unknown}"
-			printf '│ opus:     %-41s │\n' "${ANTHROPIC_DEFAULT_OPUS_MODEL:-not-set}"
-			printf '│ sonnet:   %-41s │\n' "${ANTHROPIC_DEFAULT_SONNET_MODEL:-not-set}"
-			printf '│ haiku:    %-41s │\n' "${ANTHROPIC_DEFAULT_HAIKU_MODEL:-not-set}"
-			printf '╰──────────────────────────────────────────────────────╯\n'
-		fi
-	HOOK
-	)
-
-	if [ -f "$hooks_dir/SessionStart" ]; then
-		if grep -q "$marker" "$hooks_dir/SessionStart" 2>/dev/null; then
-			echo "[braindance] ✓ Braindance hook already in SessionStart."
-			return 0
-		fi
-		# Append to existing hook (don't overwrite — claude-mem may be there)
-		echo "" >> "$hooks_dir/SessionStart"
-		echo "$marker" >> "$hooks_dir/SessionStart"
-		echo "$hook_script" >> "$hooks_dir/SessionStart"
-		echo "[braindance] ✓ Appended to existing SessionStart hook."
-	else
-		cat > "$hooks_dir/SessionStart" <<- SHEBANG
-			#!/usr/bin/env bash
-		SHEBANG
-		echo "" >> "$hooks_dir/SessionStart"
-		echo "$marker" >> "$hooks_dir/SessionStart"
-		echo "$hook_script" >> "$hooks_dir/SessionStart"
-		chmod +x "$hooks_dir/SessionStart"
-		echo "[braindance] ✓ Created SessionStart hook."
+	if [ -f "$hook_file" ]; then
+		sed -i "/$marker_start/,/$marker_end/d" "$hook_file" 2>/dev/null || true
 	fi
+
+	if [ ! -f "$hook_file" ]; then
+		printf '#!/usr/bin/env bash\n' > "$hook_file"
+		chmod +x "$hook_file"
+	fi
+
+	{
+		printf '\n'
+		printf '%s\n' "$marker_start"
+		printf '# Braindance — show active preset at Claude Code session start\n'
+		printf 'BRAINDANCE_DIR="${BRAINDANCE_DIR:-$HOME/.local/share/braindance}"\n'
+		printf 'if [ -f "$BRAINDANCE_DIR/src/main.sh" ]; then\n'
+		printf '  source "$BRAINDANCE_DIR/src/main.sh" 2>/dev/null\n'
+		printf '  printf '"'"'╭─ braindance ─────────────────────────────────────────╮\n'"'"'\n'
+		printf '  printf '"'"'│ mindset:  %-41s │\n'"'"' "${BRAINDANCE_ACTIVE_PRESET:-unknown}"\n'
+		printf '  printf '"'"'│ opus:     %-41s │\n'"'"' "${ANTHROPIC_DEFAULT_OPUS_MODEL:-not-set}"\n'
+		printf '  printf '"'"'│ sonnet:   %-41s │\n'"'"' "${ANTHROPIC_DEFAULT_SONNET_MODEL:-not-set}"\n'
+		printf '  printf '"'"'│ haiku:    %-41s │\n'"'"' "${ANTHROPIC_DEFAULT_HAIKU_MODEL:-not-set}"\n'
+		printf '  printf '"'"'╰──────────────────────────────────────────────────────╯\n'"'"'\n'
+		printf 'fi\n'
+		printf '%s\n' "$marker_end"
+	} >> "$hook_file"
+
+	echo "[braindance] ✓ Hook updated at $hook_file"
 	echo "[braindance] Every Claude Code session now shows braindance status."
 }
 
