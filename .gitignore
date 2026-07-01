@@ -1,0 +1,7 @@
+# Zai gitignore
+*.swp
+*.swo
+*~
+.DS_Store
+*.log
+.omo/
